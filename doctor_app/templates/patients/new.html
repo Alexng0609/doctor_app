@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>New Patient</h1>
+<form method="post">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        {{ form.full_name.label }} {{ form.full_name(class="form-control") }}
+    </div>
+    <div class="form-group">
+        {{ form.phone.label }} {{ form.phone(class="form-control") }}
+    </div>
+    <div class="form-group">
+        {{ form.date_of_birth.label }} {{ form.date_of_birth(class="form-control") }}
+    </div>
+    {{ form.submit(class="btn") }}
+</form>
+<a href="{{ url_for('patients.list_patients') }}" class="btn">Back</a>
+{% endblock %}

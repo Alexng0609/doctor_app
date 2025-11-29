@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Patients</h1>
+<div class="search-bar" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+  <form method="get" style="display: flex; gap: 10px; flex: 1;">
+    <input name="q" value="{{ q }}" placeholder="Search by name or phone" style="flex: 1;">
+    <button type="submit" class="btn">Search</button>
+  </form>
+  <a href="{{ url_for('patients.new_patient') }}" class="btn">New Patient</a>
+  <a href="{{ url_for('patients.import_patients') }}" class="btn" style="background: #28a745;">Import from Excel</a>
+</div>
+
+<ul class="patient-list">
+  {% for p in patients %}
+    <li>
+      <a href="{{ url_for('patients.patient_detail', patient_id=p.id) }}">{{ p.full_name }}</a>
+      {% if p.phone %} — {{ p.phone }}{% endif %}
+    </li>
+  {% else %}
+    <li>No patients found.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

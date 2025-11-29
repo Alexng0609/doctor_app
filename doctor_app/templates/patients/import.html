@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Import Patients from Excel</h1>
+
+<div style="background: #f0f8ff; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+    <h3>Excel File Format Instructions:</h3>
+    <p>Your Excel file should have the following columns in order:</p>
+    <ol>
+        <li><strong>Full Name</strong> (required) - Patient's full name</li>
+        <li><strong>Phone</strong> (optional) - Phone number</li>
+        <li><strong>Date of Birth</strong> (optional) - Format: YYYY-MM-DD or MM/DD/YYYY or DD/MM/YYYY</li>
+        <li><strong>Visit Date</strong> (optional) - Format: YYYY-MM-DD or MM/DD/YYYY (if empty, uses current date/time)</li>
+        <li><strong>Clinician</strong> (optional) - Name of clinician</li>
+        <li><strong>Notes</strong> (optional) - Visit notes</li>
+        <li><strong>Diagnosis Code</strong> (optional) - ICD code or similar</li>
+        <li><strong>Diagnosis Description</strong> (optional) - Description of diagnosis</li>
+    </ol>
+    <p><strong>Note:</strong> The first row should contain column headers and will be skipped during import.</p>
+    <p><strong>Duplicate handling:</strong> If a patient with the same name and phone already exists, a new visit/diagnosis will be added to that patient instead of creating a duplicate.</p>
+</div>
+
+<form method="post" enctype="multipart/form-data">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        {{ form.file.label }}
+        {{ form.file(class="form-control") }}
+        {% if form.file.errors %}
+            <ul class="errors">
+                {% for error in form.file.errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+    {{ form.submit(class="btn") }}
+</form>
+
+<a href="{{ url_for('patients.list_patients') }}" class="btn" style="background: #6c757d;">Cancel</a>
+
+<div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-radius: 5px;">
+    <h3>Example Excel File:</h3>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+                <tr style="background: #007bff; color: white;">
+                    <th style="border: 1px solid #ddd; padding: 8px;">Full Name</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">Phone</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">Date of Birth</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">Visit Date</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">Clinician</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">Notes</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">Diagnosis Code</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">Diagnosis Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">John Doe</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">555-1234</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">1980-05-15</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">2024-01-15</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Dr. Smith</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Patient complains of headache</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">R51</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Headache</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Jane Smith</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">555-5678</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">1992-11-22</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">2024-01-20</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Dr. Johnson</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Annual checkup</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Z00.00</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">General health examination</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Bob Johnson</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">555-9012</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">1975-03-30</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;"></td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Dr. Smith</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Follow-up visit</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">E11.9</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">Type 2 diabetes mellitus</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border-radius: 5px; border-left: 4px solid #0c5460;">
+    <h4 style="margin-top: 0;">Import Behavior:</h4>
+    <ul>
+        <li>If only patient info is provided (no visit/diagnosis data), only the patient will be created</li>
+        <li>If visit date or diagnosis is provided, a visit will be created with that diagnosis</li>
+        <li>If a patient with the same name and phone exists, new visits/diagnoses will be added to that patient</li>
+        <li>Empty visit dates will default to the current date/time</li>
+    </ul>
+</div>
+{% endblock %}

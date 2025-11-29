@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>New Visit for {{ patient.full_name }}</h1>
+<form method="post">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        {{ form.clinician.label }} {{ form.clinician(class="form-control") }}
+    </div>
+    <div class="form-group">
+        {{ form.notes.label }} {{ form.notes(class="form-control") }}
+    </div>
+    {{ form.submit(class="btn") }}
+</form>
+<a href="{{ url_for('patients.patient_detail', patient_id=patient.id) }}" class="btn">Back</a>
+{% endblock %}

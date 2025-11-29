@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Visit on {{ visit.visit_date.strftime('%b %d, %Y %H:%M') }}</h1>
+<p>Clinician: {{ visit.clinician or '—' }}</p>
+<p>Notes: {{ visit.notes or '—' }}</p>
+
+<h2>Diagnoses</h2>
+<ul class="diagnoses-list">
+  {% for d in diagnoses %}
+    <li>{% if d.code %}[{{ d.code }}]{% endif %} {{ d.description }}</li>
+  {% else %}
+    <li>No diagnoses yet.</li>
+  {% endfor %}
+</ul>
+
+<h3>Add Diagnosis</h3>
+<form method="post">
+    {{ form.hidden_tag() }}
+    <div class="form-group">
+        {{ form.code.label }} {{ form.code(class="form-control") }}
+    </div>
+    <div class="form-group">
+        {{ form.description.label }} {{ form.description(class="form-control") }}
+    </div>
+    {{ form.submit(class="btn") }}
+</form>
+<a href="{{ url_for('patients.patient_detail', patient_id=visit.patient.id) }}" class="btn">Back</a>
+{% endblock %}
