@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>New Patient</h1>
+<h1>Edit Patient: {{ patient.full_name }}</h1>
 
 {% if form.errors %}
 <div style="background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #f5c6cb;">
@@ -20,7 +20,7 @@
     
     <div class="form-group">
         {{ form.full_name.label }}
-        {{ form.full_name(class="form-control", placeholder="Enter patient's full name") }}
+        {{ form.full_name(class="form-control") }}
         {% if form.full_name.errors %}
             <ul class="errors">
                 {% for error in form.full_name.errors %}
@@ -32,7 +32,7 @@
     
     <div class="form-group">
         {{ form.phone.label }}
-        {{ form.phone(class="form-control", placeholder="e.g., 555-1234") }}
+        {{ form.phone(class="form-control") }}
         {% if form.phone.errors %}
             <ul class="errors">
                 {% for error in form.phone.errors %}
@@ -68,15 +68,10 @@
     </div>
     
     {{ form.submit(class="btn") }}
-    <a href="{{ url_for('patients.list_patients') }}" class="btn" style="background: #6c757d;">Cancel</a>
+    <a href="{{ url_for('patients.patient_detail', patient_id=patient.id) }}" class="btn" style="background: #6c757d;">Cancel</a>
 </form>
 
-<div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border-radius: 5px; border-left: 4px solid #0c5460;">
-    <strong>📋 Tips for entering patient information:</strong>
-    <ul style="margin: 10px 0 0 20px;">
-        <li><strong>Full Name:</strong> Enter complete name (First and Last name)</li>
-        <li><strong>Phone:</strong> Any format is acceptable (e.g., 555-1234 or (555) 123-4567)</li>
-        <li><strong>Date of Birth:</strong> Use the date picker or enter manually in YYYY-MM-DD format</li>
-    </ul>
+<div style="margin-top: 30px; padding: 15px; background: #fff3cd; border-radius: 5px;">
+    <strong>Note:</strong> Editing patient information will not affect their existing visit records.
 </div>
 {% endblock %}

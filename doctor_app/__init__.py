@@ -15,12 +15,12 @@ def create_app(config_class=Config):
 
     db.init_app(app)
     login_manager.init_app(app)
-    login_manager.login_view = "auth.login"  # Fixed: should be "auth.login"
+    login_manager.login_view = "auth.login"
 
     # Import and register blueprints
     from doctor_app.auth.routes import bp as auth_bp
 
-    app.register_blueprint(auth_bp)  # no prefix
+    app.register_blueprint(auth_bp)
 
     from doctor_app.patients.routes import bp as patients_bp
 

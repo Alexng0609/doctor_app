@@ -1,14 +1,15 @@
 {% extends 'base.html' %}
 {% block content %}
 <div style="margin-bottom: 20px;">
-    <a href="{{ url_for('patients.patient_detail', patient_id=patient.id) }}" style="color: #007bff; text-decoration: none;">← Back to {{ patient.full_name }}</a>
+    <a href="{{ url_for('patients.patient_detail', patient_id=visit.patient_id) }}" style="color: #007bff; text-decoration: none;">← Back to {{ visit.patient.full_name }}</a>
 </div>
 
-<h1>New Visit for {{ patient.full_name }}</h1>
+<h1>Edit Visit for {{ visit.patient.full_name }}</h1>
+<p style="color: #666; margin-bottom: 20px;">Visit Date: {{ visit.visit_date.strftime('%B %d, %Y at %I:%M %p') }}</p>
 
 <div id="validationError" style="display: none; background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #f5c6cb;">
-    <strong>⚠️ Validation Error:</strong>
-    <p id="validationMessage" style="margin: 10px 0 0 0;"></p>
+    <strong>❌ Cannot Save Visit - Please Fix These Errors:</strong>
+    <div id="validationMessage" style="margin: 10px 0 0 0;"></div>
 </div>
 
 <form method="post" id="visitForm">
@@ -20,25 +21,11 @@
         <div class="form-group">
             {{ form.clinician.label }}
             {{ form.clinician(class="form-control", placeholder="e.g., Dr. John Smith") }}
-            {% if form.clinician.errors %}
-                <ul class="errors">
-                    {% for error in form.clinician.errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
         </div>
         
         <div class="form-group">
             {{ form.notes.label }}
             {{ form.notes(class="form-control", rows="6", placeholder="Enter clinical notes, symptoms, observations, treatment plan, etc.") }}
-            {% if form.notes.errors %}
-                <ul class="errors">
-                    {% for error in form.notes.errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
         </div>
     </div>
     
@@ -49,22 +36,30 @@
         </div>
         
         <div id="diagnosesContainer">
-            <!-- Initial diagnosis row -->
-            <div class="diagnosis-row" style="border-bottom: 1px solid #ddd; padding-bottom: 15px; margin-bottom: 15px;">
+            {% for i in range(1, 6) %}
+            {% set code_val = form['diagnosis_code_' ~ i].data %}
+            {% set desc_val = form['diagnosis_desc_' ~ i].data %}
+            {% if code_val or desc_val %}
+            <div class="diagnosis-row" id="diagnosis-{{ i }}" style="border-bottom: 1px solid #ddd; padding-bottom: 15px; margin-bottom: 15px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="color: #666; margin: 0;">Diagnosis 1</h4>
+                    <h4 style="color: #666; margin: 0;">Diagnosis {{ i }}</h4>
+                    {% if i > 1 %}
+                    <button type="button" onclick="removeDiagnosis({{ i }})" class="btn" style="background: #dc3545; padding: 5px 10px; font-size: 13px;">Remove</button>
+                    {% endif %}
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 3fr; gap: 10px;">
                     <div class="form-group" style="margin-bottom: 0;">
-                        {{ form.diagnosis_code_1.label }}
-                        {{ form.diagnosis_code_1(class="form-control", placeholder="e.g., R51") }}
+                        {{ form['diagnosis_code_' ~ i].label }}
+                        {{ form['diagnosis_code_' ~ i](class="form-control", placeholder="e.g., R51") }}
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
-                        {{ form.diagnosis_desc_1.label }}
-                        {{ form.diagnosis_desc_1(class="form-control", placeholder="e.g., Headache") }}
+                        {{ form['diagnosis_desc_' ~ i].label }}
+                        {{ form['diagnosis_desc_' ~ i](class="form-control", placeholder="e.g., Headache") }}
                     </div>
                 </div>
             </div>
+            {% endif %}
+            {% endfor %}
         </div>
         
         <p style="color: #856404; margin: 15px 0 0 0; font-size: 14px;">
@@ -77,17 +72,12 @@
     
     <div style="margin-top: 20px;">
         {{ form.submit(class="btn") }}
-        <a href="{{ url_for('patients.patient_detail', patient_id=patient.id) }}" class="btn" style="background: #6c757d;">Cancel</a>
+        <a href="{{ url_for('patients.patient_detail', patient_id=visit.patient_id) }}" class="btn" style="background: #6c757d;">Cancel</a>
     </div>
 </form>
 
-<div id="validationError" style="display: none; background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #f5c6cb;">
-    <strong>⚠️ Validation Error:</strong>
-    <p id="validationMessage" style="margin: 10px 0 0 0;"></p>
-</div>
-
 <script>
-let diagnosisCount = 1;
+let diagnosisCount = {{ visit.diagnoses|length if visit.diagnoses else 1 }};
 const maxDiagnoses = 5;
 
 function addDiagnosis() {
@@ -137,7 +127,7 @@ function removeDiagnosis(number) {
 function showError(message) {
     const errorDiv = document.getElementById('validationError');
     const messageP = document.getElementById('validationMessage');
-    messageP.textContent = message;
+    messageP.innerHTML = message;
     errorDiv.style.display = 'block';
     errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -154,7 +144,6 @@ document.getElementById('visitForm').addEventListener('submit', function(e) {
     let hasError = false;
     let errorMessages = [];
     
-    // Check ALL diagnosis fields (all 5 possible diagnoses)
     for (let i = 1; i <= maxDiagnoses; i++) {
         const codeInput = document.getElementById('diagnosis_code_' + i);
         const descInput = document.getElementById('diagnosis_desc_' + i);
@@ -163,22 +152,15 @@ document.getElementById('visitForm').addEventListener('submit', function(e) {
             const code = codeInput.value.trim();
             const desc = descInput.value.trim();
             
-            // If either code OR description is filled, BOTH must be filled
             if (code || desc) {
                 if (!desc) {
                     hasError = true;
                     errorMessages.push(`Diagnosis ${i}: Description is required. Please fill in the diagnosis description or remove this diagnosis.`);
-                    if (!descInput.classList.contains('error-highlight')) {
-                        descInput.style.border = '2px solid #dc3545';
-                        descInput.classList.add('error-highlight');
-                    }
+                    descInput.style.border = '2px solid #dc3545';
                 } else if (desc.length < 3) {
                     hasError = true;
                     errorMessages.push(`Diagnosis ${i}: Description must be at least 3 characters long.`);
-                    if (!descInput.classList.contains('error-highlight')) {
-                        descInput.style.border = '2px solid #dc3545';
-                        descInput.classList.add('error-highlight');
-                    }
+                    descInput.style.border = '2px solid #dc3545';
                 }
             }
         }
@@ -197,7 +179,6 @@ document.getElementById('visitForm').addEventListener('submit', function(e) {
 document.addEventListener('input', function(e) {
     if (e.target.id && e.target.id.startsWith('diagnosis_desc_')) {
         e.target.style.border = '';
-        e.target.classList.remove('error-highlight');
         hideError();
     }
 });

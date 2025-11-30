@@ -1,23 +1,113 @@
 {% extends 'base.html' %}
 {% block content %}
 <h1>Patients</h1>
-<div class="search-bar" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+<div class="search-bar" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
   <form method="get" style="display: flex; gap: 10px; flex: 1;">
     <input name="q" value="{{ q }}" placeholder="Search by name or phone" style="flex: 1;">
     <button type="submit" class="btn">Search</button>
   </form>
-  <a href="{{ url_for('patients.new_patient') }}" class="btn">New Patient</a>
-  <a href="{{ url_for('patients.import_patients') }}" class="btn" style="background: #28a745;">Import from Excel</a>
+  <a href="{{ url_for('patients.new_patient') }}" class="btn">+ New Patient</a>
+  
+  <!-- Dropdown Menu -->
+  <div style="position: relative; display: inline-block;" id="dropdownContainer">
+    <button type="button" onclick="toggleDropdown(event)" class="btn" style="background: #6c757d; display: flex; align-items: center; gap: 5px;">
+      ⚙️ Menu
+      <span style="font-size: 10px;">▼</span>
+    </button>
+    <div id="dropdownMenu" style="display: none; position: absolute; right: 0; background: white; min-width: 200px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border-radius: 5px; z-index: 1000; margin-top: 5px; border: 1px solid #ddd;">
+      <a href="{{ url_for('auth.change_password') }}" style="display: block; padding: 12px 16px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;" onmouseover="this.style.backgroundColor='#f0f8ff'" onmouseout="this.style.backgroundColor=''">
+        🔒 Change Password
+      </a>
+      <a href="{{ url_for('patients.import_patients') }}" style="display: block; padding: 12px 16px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;" onmouseover="this.style.backgroundColor='#f0f8ff'" onmouseout="this.style.backgroundColor=''">
+        📥 Import from Excel
+      </a>
+      <a href="{{ url_for('patients.export_patients') }}" style="display: block; padding: 12px 16px; text-decoration: none; color: #333;" onmouseover="this.style.backgroundColor='#f0f8ff'" onmouseout="this.style.backgroundColor=''">
+        📤 Export to Excel
+      </a>
+    </div>
+  </div>
 </div>
 
-<ul class="patient-list">
-  {% for p in patients %}
-    <li>
-      <a href="{{ url_for('patients.patient_detail', patient_id=p.id) }}">{{ p.full_name }}</a>
-      {% if p.phone %} — {{ p.phone }}{% endif %}
-    </li>
-  {% else %}
-    <li>No patients found.</li>
-  {% endfor %}
-</ul>
+{% if patients %}
+<div style="overflow-x: auto;">
+  <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+    <thead>
+      <tr style="background: #007bff; color: white;">
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">#</th>
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Name</th>
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Phone Number</th>
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Date of Birth</th>
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Age</th>
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Last Visit</th>
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Total Visits</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in patients %}
+      <tr style="cursor: pointer;" onclick="window.location='{{ url_for('patients.patient_detail', patient_id=p.id) }}';" onmouseover="this.style.backgroundColor='#f0f8ff';" onmouseout="this.style.backgroundColor='';">
+        <td style="padding: 10px; border: 1px solid #ddd;">{{ loop.index }}</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          <strong style="color: #007bff;">{{ p.full_name }}</strong>
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {{ p.phone or '—' }}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if p.date_of_birth %}
+            {{ p.date_of_birth.strftime('%b %d, %Y') }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if p.date_of_birth %}
+            {% set age = ((now.year - p.date_of_birth.year) - ((now.month, now.day) < (p.date_of_birth.month, p.date_of_birth.day))) %}
+            {{ age }} years
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if p.visits %}
+            {% set last_visit = p.visits|sort(attribute='visit_date', reverse=True)|first %}
+            {{ last_visit.visit_date.strftime('%b %d, %Y') }}
+          {% else %}
+            <span style="color: #999;">No visits</span>
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">
+          <span style="background: #007bff; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px;">
+            {{ p.visits|length }}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+  <strong>Total Patients:</strong> {{ patients|length }}
+  {% if q %}
+  <span style="margin-left: 10px; color: #666;">| Showing search results for "{{ q }}"</span>
+  <a href="{{ url_for('patients.list_patients') }}" style="margin-left: 10px; color: #007bff;">Clear search</a>
+  {% endif %}
+  <span style="margin-left: 15px; color: #666;">💡 Click on any row to view patient details</span>
+</div>
+
+{% else %}
+<div style="padding: 40px; text-align: center; background: #f9f9f9; border-radius: 8px; margin-top: 20px;">
+  <p style="font-size: 18px; color: #666;">
+    {% if q %}
+      No patients found matching "{{ q }}"
+    {% else %}
+      No patients yet. Click "New Patient" to add your first patient.
+    {% endif %}
+  </p>
+  {% if q %}
+  <a href="{{ url_for('patients.list_patients') }}" class="btn" style="margin-top: 10px;">Clear search</a>
+  {% endif %}
+</div>
+{% endif %}
+
 {% endblock %}

@@ -8,13 +8,25 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default="staff")
+    role = db.Column(db.String(20), default="doctor")  # 'admin' or 'doctor'
+    full_name = db.Column(db.String(120), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+
+    # Relationship to visits created by this user
+    visits = db.relationship(
+        "Visit", backref="creator", lazy=True, foreign_keys="Visit.created_by"
+    )
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def is_admin(self):
+        return self.role == "admin"
 
 
 class Patient(db.Model):
@@ -36,6 +48,7 @@ class Visit(db.Model):
     visit_date = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     clinician = db.Column(db.String(120), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     diagnoses = db.relationship(
         "Diagnosis", backref="visit", lazy=True, cascade="all, delete-orphan"
     )

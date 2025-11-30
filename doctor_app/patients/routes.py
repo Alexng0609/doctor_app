@@ -20,7 +20,9 @@ def list_patients():
             (Patient.full_name.ilike(f"%{q}%")) | (Patient.phone.ilike(f"%{q}%"))
         )
     patients = patients.order_by(Patient.full_name.asc()).all()
-    return render_template("patients/list.html", patients=patients, q=q)
+    return render_template(
+        "patients/list.html", patients=patients, q=q, now=datetime.now()
+    )
 
 
 # Add new patient
@@ -36,8 +38,8 @@ def new_patient():
         )
         db.session.add(p)
         db.session.commit()
-        flash("Patient created successfully", "success")
-        return redirect(url_for("patients.list_patients"))
+        flash("Patient created successfully. You can now add a visit.", "success")
+        return redirect(url_for("patients.patient_detail", patient_id=p.id))
     return render_template("patients/new.html", form=form)
 
 
@@ -47,7 +49,140 @@ def new_patient():
 def patient_detail(patient_id):
     patient = Patient.query.get_or_404(patient_id)
     visits = patient.visits
-    return render_template("patients/detail.html", patient=patient, visits=visits)
+    return render_template(
+        "patients/detail.html", patient=patient, visits=visits, now=datetime.now()
+    )
+
+
+# Edit patient
+@bp.route("/<int:patient_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_patient(patient_id):
+    patient = Patient.query.get_or_404(patient_id)
+    form = PatientForm(obj=patient)
+
+    if form.validate_on_submit():
+        patient.full_name = form.full_name.data
+        patient.phone = form.phone.data
+        patient.date_of_birth = form.date_of_birth.data
+        db.session.commit()
+        flash("Patient updated successfully", "success")
+        return redirect(url_for("patients.patient_detail", patient_id=patient.id))
+
+    return render_template("patients/edit.html", form=form, patient=patient)
+
+
+# Delete patient
+@bp.route("/<int:patient_id>/delete", methods=["POST"])
+@login_required
+def delete_patient(patient_id):
+    patient = Patient.query.get_or_404(patient_id)
+    patient_name = patient.full_name
+
+    db.session.delete(patient)
+    db.session.commit()
+    flash(f"Patient '{patient_name}' deleted successfully", "success")
+    return redirect(url_for("patients.list_patients"))
+
+
+# Export patients to Excel
+@bp.route("/export", methods=["GET"])
+@login_required
+def export_patients():
+    from flask import send_file
+    from io import BytesIO
+
+    # Get all patients
+    patients = Patient.query.order_by(Patient.full_name.asc()).all()
+
+    # Create a new workbook
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Patients"
+
+    # Add headers
+    headers = [
+        "#",
+        "Full Name",
+        "Phone",
+        "Date of Birth",
+        "Age",
+        "Total Visits",
+        "Last Visit",
+        "Created Date",
+    ]
+    sheet.append(headers)
+
+    # Style headers
+    for cell in sheet[1]:
+        cell.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
+        cell.fill = openpyxl.styles.PatternFill(
+            start_color="0070C0", end_color="0070C0", fill_type="solid"
+        )
+        cell.alignment = openpyxl.styles.Alignment(
+            horizontal="center", vertical="center"
+        )
+
+    # Add patient data
+    for idx, patient in enumerate(patients, start=1):
+        # Calculate age
+        age = ""
+        if patient.date_of_birth:
+            today = datetime.now().date()
+            age = (
+                today.year
+                - patient.date_of_birth.year
+                - (
+                    (today.month, today.day)
+                    < (patient.date_of_birth.month, patient.date_of_birth.day)
+                )
+            )
+
+        # Get last visit date
+        last_visit = ""
+        if patient.visits:
+            last_visit_obj = max(patient.visits, key=lambda v: v.visit_date)
+            last_visit = last_visit_obj.visit_date.strftime("%Y-%m-%d")
+
+        row = [
+            idx,
+            patient.full_name,
+            patient.phone or "",
+            patient.date_of_birth.strftime("%Y-%m-%d") if patient.date_of_birth else "",
+            age,
+            len(patient.visits),
+            last_visit,
+            patient.created_at.strftime("%Y-%m-%d"),
+        ]
+        sheet.append(row)
+
+    # Auto-adjust column widths
+    for column in sheet.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        sheet.column_dimensions[column_letter].width = adjusted_width
+
+    # Save to BytesIO
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+
+    # Generate filename with current date
+    filename = f"patients_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return send_file(
+        output,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 # Import patients from Excel
