@@ -7,25 +7,6 @@
     <button type="submit" class="btn">Search</button>
   </form>
   <a href="{{ url_for('patients.new_patient') }}" class="btn">+ New Patient</a>
-  
-  <!-- Dropdown Menu -->
-  <div style="position: relative; display: inline-block;" id="dropdownContainer">
-    <button type="button" onclick="toggleDropdown(event)" class="btn" style="background: #6c757d; display: flex; align-items: center; gap: 5px;">
-      ⚙️ Menu
-      <span style="font-size: 10px;">▼</span>
-    </button>
-    <div id="dropdownMenu" style="display: none; position: absolute; right: 0; background: white; min-width: 200px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border-radius: 5px; z-index: 1000; margin-top: 5px; border: 1px solid #ddd;">
-      <a href="{{ url_for('auth.change_password') }}" style="display: block; padding: 12px 16px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;" onmouseover="this.style.backgroundColor='#f0f8ff'" onmouseout="this.style.backgroundColor=''">
-        🔒 Change Password
-      </a>
-      <a href="{{ url_for('patients.import_patients') }}" style="display: block; padding: 12px 16px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;" onmouseover="this.style.backgroundColor='#f0f8ff'" onmouseout="this.style.backgroundColor=''">
-        📥 Import from Excel
-      </a>
-      <a href="{{ url_for('patients.export_patients') }}" style="display: block; padding: 12px 16px; text-decoration: none; color: #333;" onmouseover="this.style.backgroundColor='#f0f8ff'" onmouseout="this.style.backgroundColor=''">
-        📤 Export to Excel
-      </a>
-    </div>
-  </div>
 </div>
 
 {% if patients %}
@@ -94,14 +75,13 @@
   {% endif %}
   <span style="margin-left: 15px; color: #666;">💡 Click on any row to view patient details</span>
 </div>
-
 {% else %}
 <div style="padding: 40px; text-align: center; background: #f9f9f9; border-radius: 8px; margin-top: 20px;">
   <p style="font-size: 18px; color: #666;">
     {% if q %}
       No patients found matching "{{ q }}"
     {% else %}
-      No patients yet. Click "New Patient" to add your first patient.
+      No patients yet. Click "+ New Patient" to add your first patient.
     {% endif %}
   </p>
   {% if q %}

@@ -5,6 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Clinic App</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    /* Dark mode styles */
+    body.dark-mode {
+      background: #1a1a1a !important;
+      color: #e0e0e0 !important;
+    }
+    
+    body.dark-mode main {
+      background: #2d2d2d !important;
+      color: #e0e0e0 !important;
+    }
+    
+    body.dark-mode nav {
+      background: #1f1f1f !important;
+    }
+    
+    body.dark-mode table {
+      color: #e0e0e0 !important;
+    }
+    
+    body.dark-mode table thead tr {
+      background: #0056b3 !important;
+    }
+    
+    body.dark-mode table tbody tr {
+      background: #2d2d2d !important;
+    }
+    
+    body.dark-mode table tbody tr:hover {
+      background: #3d3d3d !important;
+    }
+    
+    body.dark-mode table td,
+    body.dark-mode table th {
+      border-color: #444 !important;
+      color: #e0e0e0 !important;
+    }
+    
+    body.dark-mode input[type="text"],
+    body.dark-mode input[type="password"],
+    body.dark-mode input[type="date"],
+    body.dark-mode input[type="file"],
+    body.dark-mode textarea,
+    body.dark-mode select {
+      background: #3d3d3d !important;
+      color: #e0e0e0 !important;
+      border-color: #555 !important;
+    }
+    
+    body.dark-mode .btn {
+      background: #0056b3 !important;
+      color: #fff !important;
+    }
+    
+    body.dark-mode .btn:hover {
+      background: #004494 !important;
+    }
+    
+    body.dark-mode .flashes li {
+      color: #fff !important;
+    }
+    
+    /* Dark mode toggle button */
+    .theme-toggle {
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 24px;
+      padding: 5px 10px;
+      transition: transform 0.2s ease;
+    }
+    
+    .theme-toggle:hover {
+      transform: scale(1.1);
+    }
+  </style>
 </head>
 <body>
   <nav>
@@ -14,9 +91,14 @@
     <a href="{{ url_for('auth.list_users') }}" class="{% if request.endpoint in ['auth.list_users', 'auth.register', 'auth.edit_user'] %}active{% endif %}">Users</a>
     {% endif %}
     
-    <a href="{{ url_for('auth.change_password') }}" class="{% if request.endpoint == 'auth.change_password' %}active{% endif %}">Change Password</a>
-    
     <div style="margin-left: auto; display: flex; align-items: center; gap: 15px;">
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Toggle Dark/Light Mode">
+        🌙
+      </button>
+      <a href="{{ url_for('patients.import_patients') }}" onclick="return confirm('Do you want to import patients from an Excel file?\n\nMake sure your Excel file is ready with the correct format.');">📥 Import</a>
+      <a href="{{ url_for('patients.export_patients') }}" onclick="return confirm('Do you want to export all patients and their visit history to Excel?\n\nThis will download a file to your computer.');">📤 Export</a>
+      <a href="{{ url_for('auth.change_password') }}" class="{% if request.endpoint == 'auth.change_password' %}active{% endif %}">Change Password</a>
+      
       <span style="color: #fff; font-size: 14px;">
         👤 {{ current_user.full_name or current_user.username }}
         {% if current_user.is_admin() %}<span style="background: #ffc107; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-left: 5px;">ADMIN</span>{% endif %}
@@ -38,5 +120,56 @@
   <main>
     {% block content %}{% endblock %}
   </main>
+  
+  <script>
+    console.log('Dark mode script loaded');
+    
+    // Dark mode toggle functionality
+    function toggleTheme() {
+      console.log('Toggle theme clicked');
+      const body = document.body;
+      const themeToggle = document.getElementById('themeToggle');
+      
+      if (body.classList.contains('dark-mode')) {
+        // Switch to light mode
+        body.classList.remove('dark-mode');
+        themeToggle.textContent = '🌙';
+        themeToggle.title = 'Switch to Dark Mode';
+        localStorage.setItem('theme', 'light');
+        console.log('Switched to light mode');
+      } else {
+        // Switch to dark mode
+        body.classList.add('dark-mode');
+        themeToggle.textContent = '☀️';
+        themeToggle.title = 'Switch to Light Mode';
+        localStorage.setItem('theme', 'dark');
+        console.log('Switched to dark mode');
+      }
+    }
+    
+    // Load saved theme preference on page load
+    (function() {
+      console.log('Loading theme preference');
+      const savedTheme = localStorage.getItem('theme');
+      const themeToggle = document.getElementById('themeToggle');
+      
+      console.log('Saved theme:', savedTheme);
+      
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        if (themeToggle) {
+          themeToggle.textContent = '☀️';
+          themeToggle.title = 'Switch to Light Mode';
+        }
+        console.log('Applied dark mode');
+      } else {
+        if (themeToggle) {
+          themeToggle.textContent = '🌙';
+          themeToggle.title = 'Switch to Dark Mode';
+        }
+        console.log('Applied light mode');
+      }
+    })();
+  </script>
 </body>
 </html>

@@ -97,11 +97,13 @@ def export_patients():
 
     # Create a new workbook
     workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = "Patients"
 
-    # Add headers
-    headers = [
+    # Remove default sheet
+    workbook.remove(workbook.active)
+
+    # Sheet 1: Patient Summary
+    summary_sheet = workbook.create_sheet("Patient Summary")
+    summary_headers = [
         "#",
         "Full Name",
         "Phone",
@@ -111,10 +113,10 @@ def export_patients():
         "Last Visit",
         "Created Date",
     ]
-    sheet.append(headers)
+    summary_sheet.append(summary_headers)
 
-    # Style headers
-    for cell in sheet[1]:
+    # Style summary headers
+    for cell in summary_sheet[1]:
         cell.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
         cell.fill = openpyxl.styles.PatternFill(
             start_color="0070C0", end_color="0070C0", fill_type="solid"
@@ -123,7 +125,7 @@ def export_patients():
             horizontal="center", vertical="center"
         )
 
-    # Add patient data
+    # Add patient summary data
     for idx, patient in enumerate(patients, start=1):
         # Calculate age
         age = ""
@@ -154,10 +156,10 @@ def export_patients():
             last_visit,
             patient.created_at.strftime("%Y-%m-%d"),
         ]
-        sheet.append(row)
+        summary_sheet.append(row)
 
-    # Auto-adjust column widths
-    for column in sheet.columns:
+    # Auto-adjust column widths for summary
+    for column in summary_sheet.columns:
         max_length = 0
         column_letter = column[0].column_letter
         for cell in column:
@@ -167,7 +169,99 @@ def export_patients():
             except:
                 pass
         adjusted_width = min(max_length + 2, 50)
-        sheet.column_dimensions[column_letter].width = adjusted_width
+        summary_sheet.column_dimensions[column_letter].width = adjusted_width
+
+    # Sheet 2: Visits by Patient (Grouped)
+    grouped_sheet = workbook.create_sheet("Visits by Patient")
+
+    for patient in patients:
+        if patient.visits:
+            # Patient header
+            grouped_sheet.append([])  # Empty row for spacing
+            patient_header = grouped_sheet.cell(
+                grouped_sheet.max_row + 1, 1, f"Patient: {patient.full_name}"
+            )
+            patient_header.font = openpyxl.styles.Font(
+                bold=True, size=14, color="FFFFFF"
+            )
+            patient_header.fill = openpyxl.styles.PatternFill(
+                start_color="0070C0", end_color="0070C0", fill_type="solid"
+            )
+            grouped_sheet.merge_cells(
+                f"A{grouped_sheet.max_row}:H{grouped_sheet.max_row}"
+            )
+
+            # Patient info
+            grouped_sheet.append(
+                [
+                    "Phone:",
+                    patient.phone or "N/A",
+                    "DOB:",
+                    patient.date_of_birth.strftime("%Y-%m-%d")
+                    if patient.date_of_birth
+                    else "N/A",
+                ]
+            )
+            grouped_sheet.append([])  # Empty row
+
+            # Visit headers
+            visit_headers_row = [
+                "Visit Date",
+                "Time",
+                "Clinician",
+                "Diagnosis Code",
+                "Diagnosis",
+                "Notes",
+            ]
+            grouped_sheet.append(visit_headers_row)
+
+            # Style visit headers
+            for col_num, cell in enumerate(grouped_sheet[grouped_sheet.max_row], 1):
+                cell.font = openpyxl.styles.Font(bold=True)
+                cell.fill = openpyxl.styles.PatternFill(
+                    start_color="D3D3D3", end_color="D3D3D3", fill_type="solid"
+                )
+
+            # Add visits for this patient
+            for visit in sorted(
+                patient.visits, key=lambda v: v.visit_date, reverse=True
+            ):
+                if visit.diagnoses:
+                    for diagnosis in visit.diagnoses:
+                        grouped_sheet.append(
+                            [
+                                visit.visit_date.strftime("%Y-%m-%d"),
+                                visit.visit_date.strftime("%H:%M"),
+                                visit.clinician or "",
+                                diagnosis.code or "",
+                                diagnosis.description,
+                                visit.notes or "",
+                            ]
+                        )
+                else:
+                    grouped_sheet.append(
+                        [
+                            visit.visit_date.strftime("%Y-%m-%d"),
+                            visit.visit_date.strftime("%H:%M"),
+                            visit.clinician or "",
+                            "",
+                            "No diagnosis",
+                            visit.notes or "",
+                        ]
+                    )
+
+    # Auto-adjust column widths for grouped sheet
+    for column in grouped_sheet.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 60)
+        grouped_sheet.column_dimensions[column_letter].width = adjusted_width
 
     # Save to BytesIO
     output = BytesIO()
@@ -175,7 +269,9 @@ def export_patients():
     output.seek(0)
 
     # Generate filename with current date
-    filename = f"patients_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    filename = (
+        f"patients_complete_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    )
 
     return send_file(
         output,
