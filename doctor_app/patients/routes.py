@@ -13,13 +13,27 @@ bp = Blueprint("patients", __name__)
 @bp.route("/", methods=["GET"])
 @login_required
 def list_patients():
+    from flask_login import current_user
+
     q = request.args.get("q", "")
-    patients = Patient.query
+
     if q:
-        patients = patients.filter(
-            (Patient.full_name.ilike(f"%{q}%")) | (Patient.phone.ilike(f"%{q}%"))
+        # When searching, show ALL patients from all locations
+        patients = (
+            Patient.query.filter(
+                (Patient.full_name.ilike(f"%{q}%")) | (Patient.phone.ilike(f"%{q}%"))
+            )
+            .order_by(Patient.full_name.asc())
+            .all()
         )
-    patients = patients.order_by(Patient.full_name.asc()).all()
+    else:
+        # When not searching, show only current doctor's patients
+        patients = (
+            Patient.query.filter_by(doctor_id=current_user.id)
+            .order_by(Patient.full_name.asc())
+            .all()
+        )
+
     return render_template(
         "patients/list.html", patients=patients, q=q, now=datetime.now()
     )
@@ -29,12 +43,15 @@ def list_patients():
 @bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new_patient():
+    from flask_login import current_user
+
     form = PatientForm()
     if form.validate_on_submit():
         p = Patient(
             full_name=form.full_name.data,
             phone=form.phone.data,
             date_of_birth=form.date_of_birth.data,
+            doctor_id=current_user.id,  # Assign to current doctor
         )
         db.session.add(p)
         db.session.commit()
@@ -192,37 +209,36 @@ def export_patients():
             )
 
             # Patient info
-            grouped_sheet.append(
-                [
-                    "Phone:",
-                    patient.phone or "N/A",
-                    "DOB:",
-                    patient.date_of_birth.strftime("%Y-%m-%d")
-                    if patient.date_of_birth
-                    else "N/A",
-                ]
+            info_row = grouped_sheet.max_row + 1
+            grouped_sheet.cell(info_row, 1, "Phone:")
+            grouped_sheet.cell(info_row, 2, patient.phone or "—")
+            grouped_sheet.cell(info_row, 3, "DOB:")
+            grouped_sheet.cell(
+                info_row,
+                4,
+                patient.date_of_birth.strftime("%Y-%m-%d")
+                if patient.date_of_birth
+                else "—",
             )
-            grouped_sheet.append([])  # Empty row
 
             # Visit headers
-            visit_headers_row = [
-                "Visit Date",
+            visit_headers = [
+                "Date",
                 "Time",
                 "Clinician",
-                "Diagnosis Code",
+                "Code",
                 "Diagnosis",
                 "Notes",
             ]
-            grouped_sheet.append(visit_headers_row)
-
-            # Style visit headers
-            for col_num, cell in enumerate(grouped_sheet[grouped_sheet.max_row], 1):
-                cell.font = openpyxl.styles.Font(bold=True)
+            grouped_sheet.append(visit_headers)
+            header_row = grouped_sheet.max_row
+            for col_num, cell in enumerate(grouped_sheet[header_row], start=1):
+                cell.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
                 cell.fill = openpyxl.styles.PatternFill(
-                    start_color="D3D3D3", end_color="D3D3D3", fill_type="solid"
+                    start_color="4472C4", end_color="4472C4", fill_type="solid"
                 )
 
-            # Add visits for this patient
+            # Visit data
             for visit in sorted(
                 patient.visits, key=lambda v: v.visit_date, reverse=True
             ):
@@ -285,6 +301,8 @@ def export_patients():
 @bp.route("/import", methods=["GET", "POST"])
 @login_required
 def import_patients():
+    from flask_login import current_user
+
     form = ImportPatientsForm()
     if form.validate_on_submit():
         file = form.file.data
@@ -358,10 +376,12 @@ def import_patients():
                     if existing_patient:
                         patient = existing_patient
                     else:
+                        # FIXED: Assign imported patients to current doctor
                         patient = Patient(
                             full_name=str(full_name).strip(),
                             phone=str(phone).strip() if phone else None,
                             date_of_birth=date_of_birth,
+                            doctor_id=current_user.id,  # ← FIXED: Now assigns to current doctor
                         )
                         db.session.add(patient)
                         db.session.flush()  # Get patient.id for visit
@@ -403,6 +423,7 @@ def import_patients():
                             visit_date=visit_date,
                             clinician=str(clinician).strip() if clinician else None,
                             notes=str(notes).strip() if notes else None,
+                            created_by=current_user.id,  # Track who imported this
                         )
                         db.session.add(visit)
                         db.session.flush()  # Get visit.id for diagnosis

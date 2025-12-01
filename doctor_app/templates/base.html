@@ -67,19 +67,83 @@
       color: #fff !important;
     }
     
-    /* Dark mode toggle button */
-    .theme-toggle {
+    body.dark-mode .dropdown-content {
+      background: #2d2d2d !important;
+      box-shadow: 0px 8px 16px rgba(255,255,255,0.1) !important;
+    }
+    
+    body.dark-mode .dropdown-content a,
+    body.dark-mode .dropdown-content button {
+      color: #e0e0e0 !important;
+      border-bottom: 1px solid #444 !important;
+    }
+    
+    body.dark-mode .dropdown-content a:hover,
+    body.dark-mode .dropdown-content button:hover {
+      background: #3d3d3d !important;
+    }
+    
+    /* Dropdown menu styles */
+    .dropdown {
+      position: relative;
+      display: inline-block;
+    }
+    
+    .dropdown-button {
       background: none;
       border: none;
       color: #fff;
+      text-decoration: none;
+      font-weight: bold;
       cursor: pointer;
-      font-size: 24px;
-      padding: 5px 10px;
-      transition: transform 0.2s ease;
+      padding: 0;
+      font-size: 14px;
+      font-family: Arial;
     }
     
-    .theme-toggle:hover {
-      transform: scale(1.1);
+    .dropdown-button:hover {
+      text-decoration: underline;
+    }
+    
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      background-color: white;
+      min-width: 220px;
+      box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+      z-index: 1000;
+      border-radius: 5px;
+      margin-top: 10px;
+    }
+    
+    .dropdown-content a,
+    .dropdown-content button {
+      color: black;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+      border-bottom: 1px solid #f1f1f1;
+    }
+    
+    .dropdown-content a:last-child,
+    .dropdown-content button:last-child {
+      border-bottom: none;
+    }
+    
+    .dropdown-content a:hover,
+    .dropdown-content button:hover {
+      background-color: #f0f8ff;
+    }
+    
+    .dropdown.show .dropdown-content {
+      display: block;
     }
   </style>
 </head>
@@ -92,12 +156,18 @@
     {% endif %}
     
     <div style="margin-left: auto; display: flex; align-items: center; gap: 15px;">
-      <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Toggle Dark/Light Mode">
-        🌙
-      </button>
-      <a href="{{ url_for('patients.import_patients') }}" onclick="return confirm('Do you want to import patients from an Excel file?\n\nMake sure your Excel file is ready with the correct format.');">📥 Import</a>
-      <a href="{{ url_for('patients.export_patients') }}" onclick="return confirm('Do you want to export all patients and their visit history to Excel?\n\nThis will download a file to your computer.');">📤 Export</a>
-      <a href="{{ url_for('auth.change_password') }}" class="{% if request.endpoint == 'auth.change_password' %}active{% endif %}">Change Password</a>
+      <!-- Dropdown Menu -->
+      <div class="dropdown" id="settingsDropdown">
+        <button class="dropdown-button" onclick="toggleDropdown()">⚙️ Settings ▼</button>
+        <div class="dropdown-content">
+          <button onclick="toggleTheme()">
+            <span id="themeIcon">🌙</span> <span id="themeText">Dark Mode</span>
+          </button>
+          <a href="{{ url_for('patients.import_patients') }}" onclick="return confirm('Do you want to import patients from an Excel file?\n\nMake sure your Excel file is ready with the correct format.');">📥 Import from Excel</a>
+          <a href="{{ url_for('patients.export_patients') }}" onclick="return confirm('Do you want to export all patients and their visit history to Excel?\n\nThis will download a file to your computer.');">📤 Export to Excel</a>
+          <a href="{{ url_for('auth.change_password') }}">🔒 Change Password</a>
+        </div>
+      </div>
       
       <span style="color: #fff; font-size: 14px;">
         👤 {{ current_user.full_name or current_user.username }}
@@ -122,52 +192,64 @@
   </main>
   
   <script>
-    console.log('Dark mode script loaded');
+    // Dropdown toggle
+    function toggleDropdown() {
+      const dropdown = document.getElementById('settingsDropdown');
+      dropdown.classList.toggle('show');
+    }
+    
+    // Close dropdown when clicking outside
+    window.onclick = function(event) {
+      if (!event.target.matches('.dropdown-button')) {
+        const dropdown = document.getElementById('settingsDropdown');
+        if (dropdown && dropdown.classList.contains('show')) {
+          dropdown.classList.remove('show');
+        }
+      }
+    }
     
     // Dark mode toggle functionality
     function toggleTheme() {
-      console.log('Toggle theme clicked');
       const body = document.body;
-      const themeToggle = document.getElementById('themeToggle');
+      const themeIcon = document.getElementById('themeIcon');
+      const themeText = document.getElementById('themeText');
       
       if (body.classList.contains('dark-mode')) {
         // Switch to light mode
         body.classList.remove('dark-mode');
-        themeToggle.textContent = '🌙';
-        themeToggle.title = 'Switch to Dark Mode';
+        themeIcon.textContent = '🌙';
+        themeText.textContent = 'Dark Mode';
         localStorage.setItem('theme', 'light');
-        console.log('Switched to light mode');
       } else {
         // Switch to dark mode
         body.classList.add('dark-mode');
-        themeToggle.textContent = '☀️';
-        themeToggle.title = 'Switch to Light Mode';
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Light Mode';
         localStorage.setItem('theme', 'dark');
-        console.log('Switched to dark mode');
       }
+      
+      // Close dropdown after toggling theme
+      const dropdown = document.getElementById('settingsDropdown');
+      dropdown.classList.remove('show');
     }
     
     // Load saved theme preference on page load
     (function() {
-      console.log('Loading theme preference');
       const savedTheme = localStorage.getItem('theme');
-      const themeToggle = document.getElementById('themeToggle');
-      
-      console.log('Saved theme:', savedTheme);
+      const themeIcon = document.getElementById('themeIcon');
+      const themeText = document.getElementById('themeText');
       
       if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
-        if (themeToggle) {
-          themeToggle.textContent = '☀️';
-          themeToggle.title = 'Switch to Light Mode';
+        if (themeIcon) {
+          themeIcon.textContent = '☀️';
+          themeText.textContent = 'Light Mode';
         }
-        console.log('Applied dark mode');
       } else {
-        if (themeToggle) {
-          themeToggle.textContent = '🌙';
-          themeToggle.title = 'Switch to Dark Mode';
+        if (themeIcon) {
+          themeIcon.textContent = '🌙';
+          themeText.textContent = 'Dark Mode';
         }
-        console.log('Applied light mode');
       }
     })();
   </script>

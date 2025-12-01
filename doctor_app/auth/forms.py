@@ -15,6 +15,7 @@ class RegisterForm(FlaskForm):
     )
     full_name = StringField("Full Name", validators=[DataRequired(), Length(max=120)])
     email = StringField("Email", validators=[Optional(), Email(), Length(max=120)])
+    location = StringField("Location/Clinic", validators=[Optional(), Length(max=120)])
     password = PasswordField("Password", validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField(
         "Confirm Password",
@@ -33,6 +34,7 @@ class EditUserForm(FlaskForm):
     username = StringField("Username", validators=[DataRequired(), Length(max=80)])
     full_name = StringField("Full Name", validators=[DataRequired(), Length(max=120)])
     email = StringField("Email", validators=[Optional(), Email(), Length(max=120)])
+    location = StringField("Location/Clinic", validators=[Optional(), Length(max=120)])
     role = SelectField("Role", choices=[("doctor", "Doctor"), ("admin", "Admin")])
     is_active = SelectField(
         "Status",

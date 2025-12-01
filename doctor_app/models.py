@@ -11,6 +11,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), default="doctor")  # 'admin' or 'doctor'
     full_name = db.Column(db.String(120), nullable=True)
     email = db.Column(db.String(120), nullable=True)
+    location = db.Column(db.String(120), nullable=True)  # NEW: Doctor's location/clinic
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
@@ -18,6 +19,9 @@ class User(UserMixin, db.Model):
     visits = db.relationship(
         "Visit", backref="creator", lazy=True, foreign_keys="Visit.created_by"
     )
+
+    # Relationship to patients assigned to this doctor
+    patients = db.relationship("Patient", backref="primary_doctor", lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -35,6 +39,9 @@ class Patient(db.Model):
     phone = db.Column(db.String(30), nullable=True, index=True)
     date_of_birth = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    doctor_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )  # NEW: Primary doctor
     visits = db.relationship(
         "Visit", backref="patient", lazy=True, cascade="all, delete-orphan"
     )

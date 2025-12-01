@@ -12,6 +12,7 @@
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Username</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Full Name</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Email</th>
+            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Location/Clinic</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Role</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Status</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Created</th>
@@ -27,6 +28,48 @@
             </td>
             <td style="padding: 10px; border: 1px solid #ddd;">{{ user.full_name or '—' }}</td>
             <td style="padding: 10px; border: 1px solid #ddd;">{{ user.email or '—' }}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">
+                {# NEW: Quick location edit feature #}
+                <div id="location-display-{{ user.id }}" style="display: flex; align-items: center; gap: 10px;">
+                    {% if user.location %}
+                        <span style="background: #17a2b8; color: white; padding: 4px 10px; border-radius: 3px; font-size: 13px;">
+                            📍 {{ user.location }}
+                        </span>
+                    {% else %}
+                        <span style="color: #999; font-style: italic;">No location set</span>
+                    {% endif %}
+                    <button onclick="editLocation({{ user.id }}, '{{ user.location or '' }}')" 
+                            class="btn" 
+                            style="padding: 4px 10px; font-size: 12px; background: #6c757d;">
+                        Edit
+                    </button>
+                </div>
+                
+                {# Hidden form for editing location #}
+                <form id="location-form-{{ user.id }}" 
+                      method="post" 
+                      action="{{ url_for('auth.update_location', user_id=user.id) }}"
+                      style="display: none;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="text" 
+                               name="location" 
+                               id="location-input-{{ user.id }}"
+                               placeholder="Enter location/clinic name"
+                               style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 3px; font-size: 13px;">
+                        <button type="submit" 
+                                class="btn" 
+                                style="padding: 4px 10px; font-size: 12px; background: #28a745;">
+                            Save
+                        </button>
+                        <button type="button" 
+                                onclick="cancelEdit({{ user.id }})"
+                                class="btn" 
+                                style="padding: 4px 10px; font-size: 12px; background: #dc3545;">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </td>
             <td style="padding: 10px; border: 1px solid #ddd;">
                 <span style="padding: 4px 8px; border-radius: 3px; font-size: 12px; {% if user.role == 'admin' %}background: #ffc107; color: #000;{% else %}background: #007bff; color: white;{% endif %}">
                     {{ user.role|upper }}
@@ -49,7 +92,7 @@
         </tr>
         {% else %}
         <tr>
-            <td colspan="7" style="padding: 20px; text-align: center; border: 1px solid #ddd;">No users found</td>
+            <td colspan="8" style="padding: 20px; text-align: center; border: 1px solid #ddd;">No users found</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -58,4 +101,38 @@
 <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px;">
     <strong>Total Users:</strong> {{ users|length }}
 </div>
+
+<div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
+    <strong>💡 Quick Location Edit:</strong> You can now quickly update a user's location by clicking the "Edit" button next to their location. This is faster than editing the entire user profile.
+</div>
+
+<script>
+function editLocation(userId, currentLocation) {
+    // Hide display, show form
+    document.getElementById('location-display-' + userId).style.display = 'none';
+    document.getElementById('location-form-' + userId).style.display = 'block';
+    
+    // Set input value and focus
+    const input = document.getElementById('location-input-' + userId);
+    input.value = currentLocation;
+    input.focus();
+    input.select();
+}
+
+function cancelEdit(userId) {
+    // Show display, hide form
+    document.getElementById('location-display-' + userId).style.display = 'flex';
+    document.getElementById('location-form-' + userId).style.display = 'none';
+}
+
+// Allow Enter to submit, Escape to cancel
+document.addEventListener('keydown', function(e) {
+    if (e.target.name === 'location') {
+        if (e.key === 'Escape') {
+            const userId = e.target.id.replace('location-input-', '');
+            cancelEdit(userId);
+        }
+    }
+});
+</script>
 {% endblock %}

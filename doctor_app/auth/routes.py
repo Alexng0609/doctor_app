@@ -92,6 +92,7 @@ def register():
             username=form.username.data,
             full_name=form.full_name.data,
             email=form.email.data,
+            location=form.location.data,
             role=form.role.data,
         )
         user.set_password(form.password.data)
@@ -129,6 +130,7 @@ def edit_user(user_id):
         user.username = form.username.data
         user.full_name = form.full_name.data
         user.email = form.email.data
+        user.location = form.location.data
         user.role = form.role.data
         user.is_active = form.is_active.data
 
@@ -137,6 +139,21 @@ def edit_user(user_id):
         return redirect(url_for("auth.list_users"))
 
     return render_template("auth/edit_user.html", form=form, user=user)
+
+
+# NEW: Quick update location (admin only) - AJAX endpoint
+@bp.route("/users/<int:user_id>/update-location", methods=["POST"])
+@login_required
+@admin_required
+def update_location(user_id):
+    user = User.query.get_or_404(user_id)
+    location = request.form.get("location", "").strip()
+
+    user.location = location if location else None
+    db.session.commit()
+
+    flash(f"Location updated for {user.username}", "success")
+    return redirect(url_for("auth.list_users"))
 
 
 # Change own password

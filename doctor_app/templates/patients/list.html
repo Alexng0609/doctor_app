@@ -19,6 +19,10 @@
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Phone Number</th>
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Date of Birth</th>
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Age</th>
+        {% if q %}
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Primary Doctor</th>
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Location</th>
+        {% endif %}
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Last Visit</th>
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Total Visits</th>
       </tr>
@@ -29,6 +33,7 @@
         <td style="padding: 10px; border: 1px solid #ddd;">{{ loop.index }}</td>
         <td style="padding: 10px; border: 1px solid #ddd;">
           <strong style="color: #007bff;">{{ p.full_name }}</strong>
+          {# REMOVED: "From Another Location" text #}
         </td>
         <td style="padding: 10px; border: 1px solid #ddd;">
           {{ p.phone or '—' }}
@@ -48,6 +53,37 @@
             —
           {% endif %}
         </td>
+        {% if q %}
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if p.primary_doctor %}
+            {{ p.primary_doctor.full_name or p.primary_doctor.username }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td style="padding: 10px; border: 1px solid #ddd;">
+          {% if p.primary_doctor and p.primary_doctor.location %}
+            {% if p.doctor_id == current_user.id %}
+              {# Patient belongs to current user - show green badge #}
+              <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">
+                📍 {{ p.primary_doctor.location }} (Your Location)
+              </span>
+            {% else %}
+              {# Patient belongs to another doctor - show blue badge #}
+              <span style="background: #17a2b8; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">
+                📍 {{ p.primary_doctor.location }}
+              </span>
+            {% endif %}
+          {% elif p.primary_doctor %}
+            {# Doctor exists but no location set #}
+            <span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">
+              📍 No Location Set
+            </span>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        {% endif %}
         <td style="padding: 10px; border: 1px solid #ddd;">
           {% if p.visits %}
             {% set last_visit = p.visits|sort(attribute='visit_date', reverse=True)|first %}
@@ -72,9 +108,18 @@
   {% if q %}
   <span style="margin-left: 10px; color: #666;">| Showing search results for "{{ q }}"</span>
   <a href="{{ url_for('patients.list_patients') }}" style="margin-left: 10px; color: #007bff;">Clear search</a>
+  {% else %}
+  <span style="margin-left: 10px; color: #666;">| Showing patients from your location</span>
   {% endif %}
   <span style="margin-left: 15px; color: #666;">💡 Click on any row to view patient details</span>
 </div>
+
+{% if q %}
+<div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
+  <strong>💡 Search Tip:</strong> When searching, you can see patients from all locations. The Location column shows where each patient's primary doctor is based.
+</div>
+{% endif %}
+
 {% else %}
 <div style="padding: 40px; text-align: center; background: #f9f9f9; border-radius: 8px; margin-top: 20px;">
   <p style="font-size: 18px; color: #666;">
