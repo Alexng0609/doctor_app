@@ -91,6 +91,11 @@ def new_patient():
     from flask_login import current_user
 
     form = PatientForm()
+
+    # Pre-fill name if coming from search (when no results found)
+    if request.method == "GET" and request.args.get("prefill_name"):
+        form.full_name.data = request.args.get("prefill_name")
+
     if form.validate_on_submit():
         # Check for duplicates BEFORE creating
         duplicate = check_duplicate_patient(

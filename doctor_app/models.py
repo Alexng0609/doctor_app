@@ -8,32 +8,29 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default="doctor")  # 'admin', 'doctor', 'assistant'
+    role = db.Column(
+        db.String(20), default="doctor"
+    )  # 'admin', 'doctor', or 'assistant'
     full_name = db.Column(db.String(120), nullable=True)
     email = db.Column(db.String(120), nullable=True)
-    location = db.Column(db.String(255), nullable=True)
+    location = db.Column(db.String(120), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
-
-    # NEW: Link assistant to their doctor
     doctor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
 
     # Relationships
-    # Doctor's assistants
-    assistants = db.relationship(
-        "User",
-        backref=db.backref("doctor", remote_side=[id]),
-        lazy="dynamic",
-        foreign_keys=[doctor_id],
-    )
-
-    # Relationship to visits created by this user
     visits = db.relationship(
         "Visit", backref="creator", lazy=True, foreign_keys="Visit.created_by"
     )
-
-    # Relationship to patients assigned to this doctor/assistant
-    patients = db.relationship("Patient", backref="primary_doctor", lazy=True)
+    patients = db.relationship(
+        "Patient", backref="primary_doctor", lazy=True, foreign_keys="Patient.doctor_id"
+    )
+    assistants = db.relationship(
+        "User",
+        backref=db.backref("doctor", remote_side=[id]),
+        foreign_keys=[doctor_id],
+        lazy="dynamic",
+    )
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -50,38 +47,49 @@ class User(UserMixin, db.Model):
     def is_assistant(self):
         return self.role == "assistant"
 
-    # Permission checks
-    def can_create_assistant(self):
-        """Only doctors can create assistants"""
-        return self.role == "doctor"
+    def can_delete_patient(self):
+        """Assistants cannot delete patients"""
+        return self.role in ["admin", "doctor"]
 
     def can_import_export(self):
-        """Assistants CANNOT import/export"""
-        return self.role != "assistant"
-
-    def can_delete_patient(self):
-        """Assistants CANNOT delete patients"""
-        return self.role != "assistant"
-
-    def can_manage_all_users(self):
-        """Only admin can manage ALL users"""
-        return self.role == "admin"
+        """Assistants cannot import/export"""
+        return self.role in ["admin", "doctor"]
 
     def get_accessible_patients(self):
-        """Get patients this user can access in their list view"""
-        from flask_login import current_user
+        """
+        Get all patients this user can access:
+        1. Patients directly assigned to this doctor (doctor_id = self.id)
+        2. Patients this doctor has added visits to (via created_by in Visit)
 
-        if self.is_admin():
-            # Admin sees ALL patients
-            return Patient.query
-        elif self.is_doctor():
-            # Doctor sees own patients + assistants' patients
-            assistant_ids = [a.id for a in self.assistants.all()]
-            all_ids = [self.id] + assistant_ids
-            return Patient.query.filter(Patient.doctor_id.in_(all_ids))
+        This enables shared patients without database migration.
+        """
+        from sqlalchemy import or_
+
+        # Determine target doctor ID
+        if self.is_assistant():
+            # Assistants see their doctor's patients + patients they've visited
+            target_doctor_id = self.doctor_id
         else:
-            # Assistant sees ONLY their own patients
-            return Patient.query.filter_by(doctor_id=self.id)
+            # Doctors/admins see their own patients + patients they've visited
+            target_doctor_id = self.id
+
+        # Get patient IDs from visits this user created
+        visit_patient_ids = (
+            db.session.query(Patient.id)
+            .join(Visit)
+            .filter(Visit.created_by == self.id)
+            .distinct()
+            .subquery()
+        )
+
+        # Return patients that are either:
+        # - Assigned to this doctor (or their doctor if assistant), OR
+        # - Have visits created by this user
+        return Patient.query.filter(
+            or_(
+                Patient.doctor_id == target_doctor_id, Patient.id.in_(visit_patient_ids)
+            )
+        )
 
 
 class Patient(db.Model):
@@ -90,9 +98,7 @@ class Patient(db.Model):
     phone = db.Column(db.String(30), nullable=True, index=True)
     date_of_birth = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    doctor_id = db.Column(
-        db.Integer, db.ForeignKey("user.id"), nullable=True
-    )  # Assigned doctor or assistant
+    doctor_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     visits = db.relationship(
         "Visit", backref="patient", lazy=True, cascade="all, delete-orphan"
     )

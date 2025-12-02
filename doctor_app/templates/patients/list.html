@@ -10,6 +10,26 @@
   <a href="{{ url_for('patients.new_patient') }}" class="btn">+ New Patient</a>
 </div>
 
+{% if q %}
+<div style="background: #e7f3ff; border-left: 4px solid #2196f3; padding: 12px; margin-bottom: 15px; border-radius: 5px;">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      🔍 <strong>Searching for:</strong> "{{ q }}" 
+      {% if patients|length == 0 %}
+      - No results found
+      {% else %}
+      - {{ patients|length }} result{{ 's' if patients|length != 1 else '' }} found
+      {% endif %}
+    </div>
+    {% if patients|length == 0 %}
+    <a href="{{ url_for('patients.new_patient', prefill_name=q) }}" class="btn" style="background: #28a745;">
+      ➕ Add "{{ q }}" as New Patient
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 {% if patients %}
 <div style="overflow-x: auto;">
   <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
@@ -26,6 +46,9 @@
         {% endif %}
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Last Visit</th>
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Total Visits</th>
+        {% if q %}
+        <th style="padding: 12px; text-align: center; border: 1px solid #0056b3;">Quick Action</th>
+        {% endif %}
       </tr>
     </thead>
     <tbody>
@@ -111,6 +134,19 @@
             {{ p.visits|length }}
           </span>
         </td>
+        {% if q %}
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;" onclick="event.stopPropagation();">
+          {% if p.doctor_id != current_user.id and not (current_user.is_doctor() and p.primary_doctor and p.primary_doctor.doctor_id == current_user.id) %}
+            {# Patient from another doctor - show Add Visit button #}
+            <a href="{{ url_for('visits.new_visit', patient_id=p.id) }}" class="btn-small" style="background: #28a745;" title="Add visit for collaboration">
+              📋 Add Visit
+            </a>
+          {% else %}
+            {# Your own patient or your team's patient - just click row #}
+            <span style="color: #999; font-size: 12px;">Click row</span>
+          {% endif %}
+        </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -139,7 +175,13 @@
 
 {% if q %}
 <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
-  <strong>💡 Search Tip:</strong> Search shows all patients in the system. Click on any patient to view their details and add visits.
+  <strong>💡 Search & Collaboration:</strong> 
+  <ul style="margin: 5px 0 0 20px; padding: 0;">
+    <li>Search shows all patients in the system for collaboration</li>
+    <li>If patient not found, click "Add as New Patient" button to quickly create them</li>
+    <li>For patients from other doctors, use "📋 Add Visit" button to record a visit without transferring the patient</li>
+    <li>Click on your own patients to view full details</li>
+  </ul>
 </div>
 {% endif %}
 
@@ -182,7 +224,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Make row clickable
     row.addEventListener('click', function(e) {
-      if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'FORM' && !e.target.closest('button')) {
+      if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'FORM' && !e.target.closest('button') && !e.target.closest('a')) {
         const patientId = this.getAttribute('data-patient-id');
         window.location.href = "{{ url_for('patients.patient_detail', patient_id=0) }}".replace('0', patientId);
       }
@@ -190,5 +232,26 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
+
+<style>
+.btn-small {
+  padding: 6px 12px;
+  font-size: 13px;
+  text-decoration: none;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-block;
+  margin: 0 2px;
+}
+
+.btn-small:hover {
+  background: #0056b3;
+  color: white;
+  text-decoration: none;
+}
+</style>
 
 {% endblock %}
