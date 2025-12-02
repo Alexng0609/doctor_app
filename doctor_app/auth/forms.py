@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, SelectField
+from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField
 from wtforms.validators import DataRequired, Length, Email, EqualTo, Optional
 
 
@@ -15,7 +15,14 @@ class RegisterForm(FlaskForm):
     )
     full_name = StringField("Full Name", validators=[DataRequired(), Length(max=120)])
     email = StringField("Email", validators=[Optional(), Email(), Length(max=120)])
-    location = StringField("Location/Clinic", validators=[Optional(), Length(max=120)])
+    location = TextAreaField(
+        "Location/Clinic Address",
+        validators=[Optional(), Length(max=255)],
+        render_kw={
+            "rows": 3,
+            "placeholder": "Enter full address:\nStreet\nCity, State ZIP",
+        },
+    )
     password = PasswordField("Password", validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField(
         "Confirm Password",
@@ -34,7 +41,14 @@ class EditUserForm(FlaskForm):
     username = StringField("Username", validators=[DataRequired(), Length(max=80)])
     full_name = StringField("Full Name", validators=[DataRequired(), Length(max=120)])
     email = StringField("Email", validators=[Optional(), Email(), Length(max=120)])
-    location = StringField("Location/Clinic", validators=[Optional(), Length(max=120)])
+    location = TextAreaField(
+        "Location/Clinic Address",
+        validators=[Optional(), Length(max=255)],
+        render_kw={
+            "rows": 3,
+            "placeholder": "Enter full address:\nStreet\nCity, State ZIP",
+        },
+    )
     role = SelectField("Role", choices=[("doctor", "Doctor"), ("admin", "Admin")])
     is_active = SelectField(
         "Status",

@@ -9,6 +9,51 @@ from datetime import datetime
 bp = Blueprint("patients", __name__)
 
 
+def check_duplicate_patient(full_name, phone, doctor_id, exclude_patient_id=None):
+    """
+    Check if a patient with the same name and phone already exists for this doctor.
+
+    Args:
+        full_name: Patient's full name
+        phone: Patient's phone number
+        doctor_id: Doctor's user ID
+        exclude_patient_id: Patient ID to exclude from check (for editing)
+
+    Returns:
+        Existing patient if duplicate found, None otherwise
+    """
+    # Normalize inputs
+    full_name = full_name.strip() if full_name else ""
+    phone = phone.strip() if phone else ""
+
+    # Build query
+    query = Patient.query.filter_by(doctor_id=doctor_id)
+
+    # Exclude current patient if editing
+    if exclude_patient_id:
+        query = query.filter(Patient.id != exclude_patient_id)
+
+    # Strategy 1: Check by name AND phone (most reliable)
+    if phone:
+        duplicate = query.filter_by(full_name=full_name, phone=phone).first()
+        if duplicate:
+            return duplicate
+
+    # Strategy 2: Check by name only (if no phone provided or no match with phone)
+    # This catches cases where phone might be updated/changed
+    duplicate = query.filter_by(full_name=full_name).first()
+    if duplicate:
+        # If we found a name match, check if phones are similar
+        # Allow if one has no phone and other does (phone was added later)
+        if not duplicate.phone or not phone:
+            return duplicate
+        # If both have phones but they're different, this might be a different person
+        # with same name - don't block, but warn
+        return None
+
+    return None
+
+
 # List all patients
 @bp.route("/", methods=["GET"])
 @login_required
@@ -47,16 +92,42 @@ def new_patient():
 
     form = PatientForm()
     if form.validate_on_submit():
-        p = Patient(
+        # Check for duplicates BEFORE creating
+        duplicate = check_duplicate_patient(
             full_name=form.full_name.data,
             phone=form.phone.data,
+            doctor_id=current_user.id,
+        )
+
+        if duplicate:
+            # Found a duplicate - show error and link to existing patient
+            flash(
+                f"⚠️ Patient already exists! "
+                f"'{duplicate.full_name}' with phone '{duplicate.phone or 'N/A'}' "
+                f"is already in your patient list.",
+                "danger",
+            )
+            flash(
+                f"Click here to view existing patient: "
+                f"<a href='{url_for('patients.patient_detail', patient_id=duplicate.id)}' style='color: white; text-decoration: underline;'>"
+                f"View {duplicate.full_name}</a>",
+                "warning",
+            )
+            # Re-render form with submitted data
+            return render_template("patients/new.html", form=form)
+
+        # No duplicate - create new patient
+        p = Patient(
+            full_name=form.full_name.data.strip(),
+            phone=form.phone.data.strip() if form.phone.data else None,
             date_of_birth=form.date_of_birth.data,
             doctor_id=current_user.id,  # Assign to current doctor
         )
         db.session.add(p)
         db.session.commit()
-        flash("Patient created successfully. You can now add a visit.", "success")
+        flash("✅ Patient created successfully. You can now add a visit.", "success")
         return redirect(url_for("patients.patient_detail", patient_id=p.id))
+
     return render_template("patients/new.html", form=form)
 
 
@@ -79,11 +150,31 @@ def edit_patient(patient_id):
     form = PatientForm(obj=patient)
 
     if form.validate_on_submit():
-        patient.full_name = form.full_name.data
-        patient.phone = form.phone.data
+        # Check for duplicates BEFORE updating (exclude current patient)
+        duplicate = check_duplicate_patient(
+            full_name=form.full_name.data,
+            phone=form.phone.data,
+            doctor_id=patient.doctor_id,
+            exclude_patient_id=patient.id,  # Exclude current patient from check
+        )
+
+        if duplicate:
+            # Found a duplicate - show error
+            flash(
+                f"⚠️ Cannot update: Another patient with the same name and phone already exists! "
+                f"'{duplicate.full_name}' with phone '{duplicate.phone or 'N/A'}' "
+                f"(Patient ID: {duplicate.id})",
+                "danger",
+            )
+            # Re-render form with submitted data
+            return render_template("patients/edit.html", form=form, patient=patient)
+
+        # No duplicate - update patient
+        patient.full_name = form.full_name.data.strip()
+        patient.phone = form.phone.data.strip() if form.phone.data else None
         patient.date_of_birth = form.date_of_birth.data
         db.session.commit()
-        flash("Patient updated successfully", "success")
+        flash("✅ Patient updated successfully", "success")
         return redirect(url_for("patients.patient_detail", patient_id=patient.id))
 
     return render_template("patients/edit.html", form=form, patient=patient)
@@ -98,7 +189,7 @@ def delete_patient(patient_id):
 
     db.session.delete(patient)
     db.session.commit()
-    flash(f"Patient '{patient_name}' deleted successfully", "success")
+    flash(f"✅ Patient '{patient_name}' deleted successfully", "success")
     return redirect(url_for("patients.list_patients"))
 
 
@@ -108,9 +199,14 @@ def delete_patient(patient_id):
 def export_patients():
     from flask import send_file
     from io import BytesIO
+    from flask_login import current_user
 
-    # Get all patients
-    patients = Patient.query.order_by(Patient.full_name.asc()).all()
+    # Get only current user's patients for export
+    patients = (
+        Patient.query.filter_by(doctor_id=current_user.id)
+        .order_by(Patient.full_name.asc())
+        .all()
+    )
 
     # Create a new workbook
     workbook = openpyxl.Workbook()
@@ -285,9 +381,7 @@ def export_patients():
     output.seek(0)
 
     # Generate filename with current date
-    filename = (
-        f"patients_complete_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-    )
+    filename = f"patients_export_{current_user.username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
     return send_file(
         output,
@@ -313,7 +407,9 @@ def import_patients():
             sheet = workbook.active
 
             imported_count = 0
+            updated_count = 0
             skipped_count = 0
+            duplicate_count = 0
             errors = []
 
             # Skip header row (assumes first row is header)
@@ -336,6 +432,10 @@ def import_patients():
                         skipped_count += 1
                         errors.append(f"Row {row_idx}: Missing full name")
                         continue
+
+                    # Normalize data
+                    full_name = str(full_name).strip()
+                    phone = str(phone).strip() if phone else None
 
                     # Parse date of birth
                     date_of_birth = None
@@ -360,31 +460,43 @@ def import_patients():
                             except:
                                 pass
 
-                    # Check if patient already exists (by name and phone)
-                    existing_patient = None
-                    if phone and str(phone).strip():
-                        existing_patient = Patient.query.filter_by(
-                            full_name=str(full_name).strip(), phone=str(phone).strip()
-                        ).first()
+                    # DUPLICATE CHECK: Use the same logic as new_patient
+                    existing_patient = check_duplicate_patient(
+                        full_name=full_name, phone=phone, doctor_id=current_user.id
+                    )
 
-                    if not existing_patient:
-                        existing_patient = Patient.query.filter_by(
-                            full_name=str(full_name).strip()
-                        ).first()
-
-                    # Create or use existing patient
+                    # Create or update patient
                     if existing_patient:
+                        # Patient exists - update their info if needed
                         patient = existing_patient
+
+                        # Update DOB if provided and different
+                        if date_of_birth and patient.date_of_birth != date_of_birth:
+                            patient.date_of_birth = date_of_birth
+
+                        # Update phone if provided and different
+                        if phone and patient.phone != phone:
+                            patient.phone = phone
+
+                        # Check if this is truly a duplicate (same data) or an update
+                        if (
+                            patient.date_of_birth == date_of_birth
+                            and patient.phone == phone
+                        ):
+                            duplicate_count += 1
+                        else:
+                            updated_count += 1
                     else:
-                        # FIXED: Assign imported patients to current doctor
+                        # No duplicate - create new patient
                         patient = Patient(
-                            full_name=str(full_name).strip(),
-                            phone=str(phone).strip() if phone else None,
+                            full_name=full_name,
+                            phone=phone,
                             date_of_birth=date_of_birth,
-                            doctor_id=current_user.id,  # ← FIXED: Now assigns to current doctor
+                            doctor_id=current_user.id,  # Always assign to current user
                         )
                         db.session.add(patient)
                         db.session.flush()  # Get patient.id for visit
+                        imported_count += 1
 
                     # Create visit if visit date or diagnosis is provided
                     if visit_date_value or diagnosis_description:
@@ -439,8 +551,6 @@ def import_patients():
                             )
                             db.session.add(diagnosis)
 
-                    imported_count += 1
-
                 except Exception as e:
                     skipped_count += 1
                     errors.append(f"Row {row_idx}: {str(e)}")
@@ -448,10 +558,24 @@ def import_patients():
             # Commit all changes at once
             db.session.commit()
 
-            # Show results
-            flash(f"Successfully imported {imported_count} patient records", "success")
+            # Show results with detailed feedback
+            if imported_count > 0:
+                flash(
+                    f"✅ Successfully imported {imported_count} new patient(s)",
+                    "success",
+                )
+            if updated_count > 0:
+                flash(
+                    f"ℹ️ Updated {updated_count} existing patient(s) with new information",
+                    "info",
+                )
+            if duplicate_count > 0:
+                flash(
+                    f"⚠️ Skipped {duplicate_count} duplicate(s) (patient already exists with same data)",
+                    "warning",
+                )
             if skipped_count > 0:
-                flash(f"Skipped {skipped_count} rows due to errors", "warning")
+                flash(f"❌ Skipped {skipped_count} row(s) due to errors", "danger")
 
             # Show first few errors if any
             for error in errors[:5]:
@@ -463,6 +587,6 @@ def import_patients():
 
         except Exception as e:
             db.session.rollback()
-            flash(f"Error importing file: {str(e)}", "danger")
+            flash(f"❌ Error importing file: {str(e)}", "danger")
 
     return render_template("patients/import.html", form=form)

@@ -21,19 +21,24 @@
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Age</th>
         {% if q %}
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Primary Doctor</th>
-        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Location</th>
+        <th style="padding: 12px; text-align: left; border: 1px solid #0056b3; min-width: 200px;">Location</th>
         {% endif %}
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Last Visit</th>
         <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Total Visits</th>
+        {% if q %}
+        <th style="padding: 12px; text-align: center; border: 1px solid #0056b3;">Action</th>
+        {% endif %}
       </tr>
     </thead>
     <tbody>
       {% for p in patients %}
-      <tr style="cursor: pointer;" onclick="window.location='{{ url_for('patients.patient_detail', patient_id=p.id) }}';" onmouseover="this.style.backgroundColor='#f0f8ff';" onmouseout="this.style.backgroundColor='';">
+      <tr class="patient-row" data-patient-id="{{ p.id }}" style="{% if p.doctor_id != current_user.id %}background: #fff3cd;{% endif %} cursor: pointer;">
         <td style="padding: 10px; border: 1px solid #ddd;">{{ loop.index }}</td>
         <td style="padding: 10px; border: 1px solid #ddd;">
           <strong style="color: #007bff;">{{ p.full_name }}</strong>
-          {# REMOVED: "From Another Location" text #}
+          {% if p.doctor_id != current_user.id %}
+            <span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px;">OTHER DOCTOR</span>
+          {% endif %}
         </td>
         <td style="padding: 10px; border: 1px solid #ddd;">
           {{ p.phone or '—' }}
@@ -61,23 +66,31 @@
             —
           {% endif %}
         </td>
-        <td style="padding: 10px; border: 1px solid #ddd;">
+        <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
           {% if p.primary_doctor and p.primary_doctor.location %}
             {% if p.doctor_id == current_user.id %}
               {# Patient belongs to current user - show green badge #}
-              <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">
-                📍 {{ p.primary_doctor.location }} (Your Location)
-              </span>
+              <div style="background: #28a745; color: white; padding: 8px 10px; border-radius: 5px; font-size: 12px; border-left: 3px solid #1e7e34;">
+                <div style="font-weight: bold; margin-bottom: 3px;">📍 Your Location:</div>
+                <div style="font-size: 11px; line-height: 1.4; white-space: pre-line;">{{ p.primary_doctor.location.split('\n')[0] }}{% if p.primary_doctor.location.count('\n') > 0 %}...{% endif %}</div>
+              </div>
             {% else %}
               {# Patient belongs to another doctor - show blue badge #}
-              <span style="background: #17a2b8; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">
-                📍 {{ p.primary_doctor.location }}
-              </span>
+              <div style="background: #17a2b8; color: white; padding: 8px 10px; border-radius: 5px; font-size: 12px; border-left: 3px solid #117a8b;">
+                <div style="font-weight: bold; margin-bottom: 3px;">📍 Location:</div>
+                <div style="font-size: 11px; line-height: 1.4; white-space: pre-line;">{{ p.primary_doctor.location.split('\n')[0] }}{% if p.primary_doctor.location.count('\n') > 0 %}...{% endif %}</div>
+              </div>
+            {% endif %}
+            {# Show full address on hover #}
+            {% if p.primary_doctor.location.count('\n') > 0 %}
+              <small style="color: #666; font-size: 10px; display: block; margin-top: 3px; font-style: italic;">
+                Hover for full address
+              </small>
             {% endif %}
           {% elif p.primary_doctor %}
             {# Doctor exists but no location set #}
-            <span style="background: #6c757d; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">
-              📍 No Location Set
+            <span style="background: #6c757d; color: white; padding: 6px 10px; border-radius: 3px; font-size: 12px; display: inline-block;">
+              📍 No Address Set
             </span>
           {% else %}
             —
@@ -97,6 +110,23 @@
             {{ p.visits|length }}
           </span>
         </td>
+        {% if q %}
+        <td style="padding: 10px; border: 1px solid #ddd; text-align: center;" onclick="event.stopPropagation();">
+          {% if p.doctor_id != current_user.id %}
+            {# Patient belongs to another doctor - show "Add to My Patients" button #}
+            <form method="post" action="{{ url_for('patients.add_patient_to_my_list', patient_id=p.id) }}" style="display: inline;">
+              <button type="submit" class="btn" style="background: #28a745; padding: 6px 12px; font-size: 12px;" onclick="return confirm('Add {{ p.full_name }} to your patient list?\n\nThis will allow you to manage visits for this patient.');">
+                ➕ Add to My Patients
+              </button>
+            </form>
+          {% else %}
+            {# Patient already belongs to current user #}
+            <span style="background: #28a745; color: white; padding: 6px 12px; border-radius: 3px; font-size: 12px;">
+              ✓ Your Patient
+            </span>
+          {% endif %}
+        </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -116,7 +146,7 @@
 
 {% if q %}
 <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
-  <strong>💡 Search Tip:</strong> When searching, you can see patients from all locations. The Location column shows where each patient's primary doctor is based.
+  <strong>💡 Search Tip:</strong> When searching, you can see patients from all locations. Click "➕ Add to My Patients" to add patients from other doctors to your list. This allows you to manage their visits while keeping track of their original doctor.
 </div>
 {% endif %}
 
@@ -135,4 +165,53 @@
 </div>
 {% endif %}
 
+<script>
+// Make table rows clickable (except when clicking buttons)
+document.addEventListener('DOMContentLoaded', function() {
+  const rows = document.querySelectorAll('.patient-row');
+  
+  rows.forEach(row => {
+    // Add hover effect
+    row.addEventListener('mouseenter', function() {
+      this.style.backgroundColor = this.style.backgroundColor.includes('fff3cd') ? '#ffe082' : '#f0f8ff';
+    });
+    
+    row.addEventListener('mouseleave', function() {
+      this.style.backgroundColor = this.style.backgroundColor.includes('ffe082') ? '#fff3cd' : '';
+    });
+    
+    // Make row clickable
+    row.addEventListener('click', function(e) {
+      // Don't navigate if clicking on a button or form
+      if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'FORM' && !e.target.closest('button')) {
+        const patientId = this.getAttribute('data-patient-id');
+        window.location.href = "{{ url_for('patients.patient_detail', patient_id=0) }}".replace('0', patientId);
+      }
+    });
+  });
+});
+</script>
+
+<style>
+/* Tooltip for full address on hover */
+td[data-full-address] {
+  position: relative;
+}
+
+td[data-full-address]:hover::after {
+  content: attr(data-full-address);
+  position: absolute;
+  left: 0;
+  top: 100%;
+  background: #333;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  white-space: pre-line;
+  z-index: 1000;
+  font-size: 12px;
+  max-width: 300px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+</style>
 {% endblock %}

@@ -41,6 +41,16 @@
             <strong style="color: #666;">Patient Since:</strong>
             <p style="margin: 5px 0;">{{ patient.created_at.strftime('%B %d, %Y') }}</p>
         </div>
+        <div>
+            <strong style="color: #666;">Primary Doctor:</strong>
+            <p style="margin: 5px 0;">
+                {% if patient.primary_doctor %}
+                    {{ patient.primary_doctor.full_name or patient.primary_doctor.username }}
+                {% else %}
+                    —
+                {% endif %}
+            </p>
+        </div>
     </div>
 </div>
 
@@ -55,6 +65,7 @@
         <tr style="background: #007bff; color: white;">
             <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Date</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Clinician</th>
+            <th style="padding: 12px; text-align: left; border: 1px solid #0056b3; min-width: 180px;">Location</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Diagnoses</th>
             <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Notes Preview</th>
         </tr>
@@ -68,6 +79,22 @@
             </td>
             <td style="padding: 10px; border: 1px solid #ddd;">
                 {{ v.clinician or '—' }}
+            </td>
+            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
+                {% if v.creator and v.creator.location %}
+                    <div style="background: #e7f3ff; padding: 8px 10px; border-radius: 5px; border-left: 3px solid #0070c0;">
+                        <div style="font-weight: bold; color: #0070c0; margin-bottom: 3px; font-size: 11px;">
+                            📍 Visit Location:
+                        </div>
+                        <div style="font-size: 12px; line-height: 1.4; white-space: pre-line;">{{ v.creator.location }}</div>
+                    </div>
+                {% elif v.creator %}
+                    <span style="background: #f8f9fa; color: #666; padding: 6px 10px; border-radius: 3px; font-size: 12px; display: inline-block; border: 1px dashed #ddd;">
+                        📍 No Address Set
+                    </span>
+                {% else %}
+                    <span style="color: #999;">—</span>
+                {% endif %}
             </td>
             <td style="padding: 10px; border: 1px solid #ddd;">
                 {% if v.diagnoses %}

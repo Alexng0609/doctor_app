@@ -11,7 +11,9 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), default="doctor")  # 'admin' or 'doctor'
     full_name = db.Column(db.String(120), nullable=True)
     email = db.Column(db.String(120), nullable=True)
-    location = db.Column(db.String(120), nullable=True)  # NEW: Doctor's location/clinic
+    location = db.Column(
+        db.String(255), nullable=True
+    )  # UPDATED: Increased to 255 for full addresses
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
 
