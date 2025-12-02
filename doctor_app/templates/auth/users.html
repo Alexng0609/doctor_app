@@ -2,157 +2,278 @@
 {% block content %}
 <h1>User Management</h1>
 
-<div style="margin-bottom: 20px;">
-    <a href="{{ url_for('auth.register') }}" class="btn">Add New User</a>
+<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+    <a href="{{ url_for('auth.register') }}" class="btn">+ Create Doctor</a>
+    <div style="color: #666;">
+        <strong>Showing:</strong> Doctors only (Assistants managed by their doctors)
+    </div>
 </div>
 
-<table style="width: 100%; border-collapse: collapse;">
-    <thead>
-        <tr style="background: #007bff; color: white;">
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Username</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Full Name</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Email</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd; width: 250px;">Location/Clinic Address</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Role</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Status</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Created</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #ddd;">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for user in users %}
-        <tr style="{% if not user.is_active %}opacity: 0.6;{% endif %}">
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                <strong>{{ user.username }}</strong>
-                {% if user.id == current_user.id %}<span style="color: #28a745; font-size: 12px;">(You)</span>{% endif %}
-            </td>
-            <td style="padding: 10px; border: 1px solid #ddd;">{{ user.full_name or '—' }}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">{{ user.email or '—' }}</td>
-            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
-                {# Display mode #}
-                <div id="location-display-{{ user.id }}" style="display: block;">
+<div style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+        <thead>
+            <tr style="background: #007bff; color: white;">
+                <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Username</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Full Name</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Email</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Location/Clinic</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Assistants</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Status</th>
+                <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Created</th>
+                <th style="padding: 12px; text-align: center; border: 1px solid #0056b3;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            {% if user.role != 'assistant' %}
+            <tr class="user-row" data-user-id="{{ user.id }}" style="{% if not user.is_active %}opacity: 0.6;{% endif %} cursor: pointer;">
+                <td style="padding: 10px; border: 1px solid #ddd;">
+                    <strong style="color: #007bff;">{{ user.username }}</strong>
+                    {% if user.id == current_user.id %}
+                    <span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px;">YOU</span>
+                    {% endif %}
+                    {% if user.role == 'admin' %}
+                    <span style="background: #ffc107; color: #000; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px;">👑 ADMIN</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ user.full_name or '—' }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ user.email or '—' }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">
                     {% if user.location %}
-                        <div style="background: #f8f9fa; padding: 10px; border-radius: 5px; margin-bottom: 8px; border-left: 3px solid #17a2b8;">
-                            <div style="font-weight: bold; color: #17a2b8; margin-bottom: 5px;">
-                                📍 Location Address:
-                            </div>
-                            <div style="white-space: pre-line; font-size: 13px; line-height: 1.5;">{{ user.location }}</div>
+                        <div style="background: #17a2b8; color: white; padding: 6px 10px; border-radius: 5px; font-size: 12px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            📍 {{ user.location }}
                         </div>
                     {% else %}
-                        <div style="color: #999; font-style: italic; padding: 10px;">No address set</div>
+                        <span style="color: #999; font-style: italic;">No location set</span>
                     {% endif %}
-                    <button onclick="editLocation({{ user.id }}, `{{ user.location|replace('`', '\\`')|replace('\n', '\\n') if user.location else '' }}`)" 
-                            class="btn" 
-                            style="padding: 6px 12px; font-size: 12px; background: #6c757d; width: 100%;">
-                        ✏️ Edit Address
-                    </button>
-                </div>
-                
-                {# Edit mode #}
-                <form id="location-form-{{ user.id }}" 
-                      method="post" 
-                      action="{{ url_for('auth.update_location', user_id=user.id) }}"
-                      style="display: none;">
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd;" onclick="event.stopPropagation();">
+                    {% if user.role == 'doctor' %}
+                        {% set assistant_list = user.assistants.all() %}
+                        {% set assistant_count = assistant_list|length %}
+                        {% if assistant_count > 0 %}
+                            <button class="btn-small" onclick="toggleAssistants({{ user.id }})" style="background: #17a2b8;">
+                                👥 {{ assistant_count }} Assistant{{ 's' if assistant_count != 1 else '' }}
+                            </button>
+                        {% else %}
+                            <span style="color: #999; font-size: 12px;">None</span>
+                        {% endif %}
+                    {% else %}
+                        <span style="color: #999;">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd;">
+                    {% if user.is_active %}
+                        <span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">
+                            ● Active
+                        </span>
+                    {% else %}
+                        <span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">
+                            ● Inactive
+                        </span>
+                    {% endif %}
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd;">{{ user.created_at.strftime('%b %d, %Y') }}</td>
+                <td style="padding: 10px; border: 1px solid #ddd; text-align: center;" onclick="event.stopPropagation();">
+                    <a href="{{ url_for('auth.edit_user', user_id=user.id) }}" class="btn-small">✏️ Edit</a>
+                    {% if user.id != current_user.id %}
+                    {% set assistant_list = user.assistants.all() if user.role == 'doctor' else [] %}
+                    <form method="post" action="{{ url_for('auth.delete_user', user_id=user.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete {{ user.username }}?{% if user.role == 'doctor' and assistant_list|length > 0 %}\n\nThis doctor has {{ assistant_list|length }} assistant(s). You must delete or reassign them first.{% endif %}');">
+                        <button type="submit" class="btn-small btn-danger" {% if user.role == 'doctor' and assistant_list|length > 0 %}disabled style="background: #6c757d; cursor: not-allowed;" title="Cannot delete: has assistants"{% endif %}>
+                            🗑️ Delete
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            
+            {# Expandable assistant list row #}
+            {% if user.role == 'doctor' %}
+            {% set assistant_list = user.assistants.all() %}
+            {% if assistant_list|length > 0 %}
+            <tr id="assistants-row-{{ user.id }}" class="assistants-row" style="display: none; background: #f8f9fa;">
+                <td colspan="8" style="padding: 20px; border: 1px solid #ddd;">
                     <div style="margin-bottom: 10px;">
-                        <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px;">
-                            📍 Full Address:
-                        </label>
-                        <textarea name="location" 
-                                  id="location-input-{{ user.id }}"
-                                  rows="4"
-                                  placeholder="Enter full address:&#10;Street Address&#10;City, State ZIP&#10;Country (if applicable)"
-                                  style="width: 100%; padding: 8px; border: 2px solid #17a2b8; border-radius: 4px; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
-                        <small style="color: #666; font-size: 11px;">
-                            💡 Tip: Use multiple lines for better readability
-                        </small>
+                        <strong style="color: #007bff;">👥 Assistants under {{ user.full_name or user.username }}:</strong>
                     </div>
-                    <div style="display: flex; gap: 5px;">
-                        <button type="submit" 
-                                class="btn" 
-                                style="flex: 1; padding: 8px; font-size: 13px; background: #28a745;">
-                            ✓ Save Address
-                        </button>
-                        <button type="button" 
-                                onclick="cancelEdit({{ user.id }})"
-                                class="btn" 
-                                style="flex: 1; padding: 8px; font-size: 13px; background: #dc3545;">
-                            ✗ Cancel
-                        </button>
-                    </div>
-                </form>
-            </td>
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                <span style="padding: 4px 8px; border-radius: 3px; font-size: 12px; {% if user.role == 'admin' %}background: #ffc107; color: #000;{% else %}background: #007bff; color: white;{% endif %}">
-                    {{ user.role|upper }}
-                </span>
-            </td>
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                <span style="padding: 4px 8px; border-radius: 3px; font-size: 12px; {% if user.is_active %}background: #28a745; color: white;{% else %}background: #dc3545; color: white;{% endif %}">
-                    {{ 'Active' if user.is_active else 'Inactive' }}
-                </span>
-            </td>
-            <td style="padding: 10px; border: 1px solid #ddd;">{{ user.created_at.strftime('%b %d, %Y') }}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                <a href="{{ url_for('auth.edit_user', user_id=user.id) }}" class="btn" style="padding: 5px 10px; font-size: 13px; margin-right: 5px;">Edit All</a>
-                {% if user.id != current_user.id %}
-                <form method="post" action="{{ url_for('auth.delete_user', user_id=user.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this user?');">
-                    <button type="submit" class="btn" style="padding: 5px 10px; font-size: 13px; background: #dc3545;">Delete</button>
-                </form>
-                {% endif %}
-            </td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="8" style="padding: 20px; text-align: center; border: 1px solid #ddd;">No users found</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px;">
-    <strong>Total Users:</strong> {{ users|length }}
+                    <table style="width: 100%; border-collapse: collapse; background: white;">
+                        <thead>
+                            <tr style="background: #17a2b8; color: white;">
+                                <th style="padding: 8px; text-align: left; border: 1px solid #117a8b;">Username</th>
+                                <th style="padding: 8px; text-align: left; border: 1px solid #117a8b;">Full Name</th>
+                                <th style="padding: 8px; text-align: left; border: 1px solid #117a8b;">Email</th>
+                                <th style="padding: 8px; text-align: left; border: 1px solid #117a8b;">Status</th>
+                                <th style="padding: 8px; text-align: left; border: 1px solid #117a8b;">Patients</th>
+                                <th style="padding: 8px; text-align: left; border: 1px solid #117a8b;">Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for assistant in assistant_list %}
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">
+                                    <strong>{{ assistant.username }}</strong>
+                                </td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">{{ assistant.full_name }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">{{ assistant.email or '—' }}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">
+                                    {% if assistant.is_active %}
+                                        <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">● Active</span>
+                                    {% else %}
+                                        <span style="background: #dc3545; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">● Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">
+                                    <span style="background: #007bff; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">
+                                        {{ assistant.patients|length }}
+                                    </span>
+                                </td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">{{ assistant.created_at.strftime('%b %d, %Y') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+            {% endif %}
+            {% endif %}
+            {% endif %}
+            {% else %}
+            <tr>
+                <td colspan="8" style="padding: 20px; text-align: center; border: 1px solid #ddd;">No doctors found</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
-<div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
-    <strong>💡 Quick Address Edit:</strong> Click "✏️ Edit Address" to update a user's location directly from this page. You can enter full multi-line addresses for better organization.
+<div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+    <strong>Total Doctors:</strong> {{ users|selectattr('role', 'ne', 'assistant')|list|length }}
+    <span style="margin-left: 15px; color: #666;">💡 Click on any row to edit user | Click assistant count to view details</span>
+</div>
+
+<div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
+    <strong>ℹ️ Note:</strong> Assistants are managed by their doctors through "My Assistants" menu. Only doctors and admins are shown here. Doctors with assistants cannot be deleted until their assistants are removed or reassigned.
 </div>
 
 <script>
-function editLocation(userId, currentLocation) {
-    // Hide display, show form
-    document.getElementById('location-display-' + userId).style.display = 'none';
-    document.getElementById('location-form-' + userId).style.display = 'block';
-    
-    // Set textarea value and focus
-    const textarea = document.getElementById('location-input-' + userId);
-    // Decode escaped newlines back to actual newlines
-    textarea.value = currentLocation.replace(/\\n/g, '\n').replace(/\\`/g, '`');
-    textarea.focus();
-    
-    // Move cursor to end
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+// Toggle assistant list visibility
+function toggleAssistants(userId) {
+    const row = document.getElementById('assistants-row-' + userId);
+    if (row.style.display === 'none' || row.style.display === '') {
+        row.style.display = 'table-row';
+    } else {
+        row.style.display = 'none';
+    }
 }
 
-function cancelEdit(userId) {
-    // Show display, hide form
-    document.getElementById('location-display-' + userId).style.display = 'block';
-    document.getElementById('location-form-' + userId).style.display = 'none';
-}
-
-// Allow Escape to cancel
-document.addEventListener('keydown', function(e) {
-    if (e.target.name === 'location' && e.key === 'Escape') {
-        const userId = e.target.id.replace('location-input-', '');
-        cancelEdit(userId);
-    }
-});
-
-// Auto-resize textareas as user types
-document.addEventListener('input', function(e) {
-    if (e.target.name === 'location' && e.target.tagName === 'TEXTAREA') {
-        e.target.style.height = 'auto';
-        e.target.style.height = (e.target.scrollHeight) + 'px';
-    }
+// Make table rows clickable
+document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('.user-row');
+    
+    rows.forEach(row => {
+        // Add hover effect
+        row.addEventListener('mouseenter', function() {
+            if (!this.style.opacity || this.style.opacity === '1') {
+                this.style.backgroundColor = '#f0f8ff';
+            }
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+        
+        // Make row clickable (navigate to edit page)
+        row.addEventListener('click', function(e) {
+            // Don't navigate if clicking on buttons, forms, or links
+            if (e.target.tagName !== 'BUTTON' && 
+                e.target.tagName !== 'FORM' && 
+                e.target.tagName !== 'A' && 
+                !e.target.closest('button') && 
+                !e.target.closest('form') &&
+                !e.target.closest('a')) {
+                const userId = this.getAttribute('data-user-id');
+                window.location.href = "{{ url_for('auth.edit_user', user_id=0) }}".replace('0', userId);
+            }
+        });
+    });
 });
 </script>
+
+<style>
+.btn-small {
+    padding: 6px 12px;
+    font-size: 13px;
+    text-decoration: none;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-block;
+    margin: 0 2px;
+}
+
+.btn-small:hover {
+    background: #0056b3;
+}
+
+.btn-danger {
+    background: #dc3545;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+.assistants-row {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Dark mode support */
+body.dark-mode table {
+    background: #2d2d2d !important;
+}
+
+body.dark-mode table thead tr {
+    background: #0056b3 !important;
+}
+
+body.dark-mode table tbody tr {
+    background: #2d2d2d !important;
+}
+
+body.dark-mode table tbody tr:hover,
+body.dark-mode .user-row:hover {
+    background: #3d3d3d !important;
+}
+
+body.dark-mode table td,
+body.dark-mode table th {
+    border-color: #444 !important;
+    color: #e0e0e0 !important;
+}
+
+body.dark-mode .assistants-row {
+    background: #1a1a1a !important;
+}
+
+body.dark-mode .assistants-row table {
+    background: #2d2d2d !important;
+}
+
+body.dark-mode .assistants-row thead tr {
+    background: #117a8b !important;
+}
+</style>
 {% endblock %}

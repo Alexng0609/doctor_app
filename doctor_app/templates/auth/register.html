@@ -96,7 +96,7 @@
         {% endif %}
     </div>
     
-    {{ form.submit(class="btn") }}
+    <button type="submit" class="btn">Create User</button>
     <a href="{{ url_for('auth.list_users') }}" class="btn" style="background: #6c757d;">Cancel</a>
 </form>
 {% endblock %}

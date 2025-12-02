@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2>My Assistants</h2>
+        <a href="{{ url_for('auth.create_assistant') }}" class="btn">+ Create Assistant</a>
+    </div>
+    
+    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin-bottom: 20px; border-radius: 5px;">
+        <strong>ℹ️ About Your Assistants:</strong><br>
+        Assistants work under you and can manage their own patients. They have limited permissions (cannot import/export or delete). You can see all your assistants' patients in your patient list.
+    </div>
+    
+    {% if assistant_data %}
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; background: white; border-radius: 8px; overflow: hidden;">
+            <thead>
+                <tr style="background: #007bff; color: white;">
+                    <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Username</th>
+                    <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Full Name</th>
+                    <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Email</th>
+                    <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Status</th>
+                    <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Patients</th>
+                    <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Created</th>
+                    <th style="padding: 12px; text-align: center; border: 1px solid #0056b3;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for data in assistant_data %}
+                <tr class="assistant-row" data-assistant-id="{{ data.assistant.id }}" style="cursor: pointer;">
+                    <td style="padding: 12px; border: 1px solid #ddd;">
+                        <strong style="color: #007bff;">{{ data.assistant.username }}</strong>
+                    </td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">{{ data.assistant.full_name }}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">{{ data.assistant.email or '—' }}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">
+                        {% if data.assistant.is_active %}
+                            <span style="background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">
+                                ● Active
+                            </span>
+                        {% else %}
+                            <span style="background: #dc3545; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px;">
+                                ● Inactive
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">
+                        <span style="background: #17a2b8; color: white; padding: 4px 12px; border-radius: 12px; font-size: 13px;">
+                            {{ data.patient_count }}
+                        </span>
+                    </td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">{{ data.assistant.created_at.strftime('%b %d, %Y') }}</td>
+                    <td style="padding: 12px; border: 1px solid #ddd; text-align: center;" onclick="event.stopPropagation();">
+                        <a href="{{ url_for('auth.edit_assistant', assistant_id=data.assistant.id) }}" class="btn-small">✏️ Edit</a>
+                        
+                        {% if data.patient_count == 0 %}
+                        <form method="POST" action="{{ url_for('auth.delete_assistant', assistant_id=data.assistant.id) }}" style="display: inline;">
+                            <button type="submit" class="btn-small btn-danger" onclick="return confirm('Delete assistant {{ data.assistant.username }}?\n\nThis action cannot be undone.')">
+                                🗑️ Delete
+                            </button>
+                        </form>
+                        {% else %}
+                        <button class="btn-small" style="background: #6c757d; cursor: not-allowed;" disabled 
+                                title="Cannot delete: has {{ data.patient_count }} patients assigned">
+                            🗑️ Delete
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <strong>Total Assistants:</strong> {{ assistant_data|length }}
+        <span style="margin-left: 15px; color: #666;">💡 Click on any row to edit assistant details</span>
+    </div>
+    
+    {% else %}
+    <div style="text-align: center; padding: 60px 20px; background: #f8f9fa; border-radius: 8px; border: 2px dashed #ddd;">
+        <h3 style="color: #6c757d; margin-bottom: 15px;">No Assistants Yet</h3>
+        <p style="color: #6c757d; margin-bottom: 20px;">Create your first assistant to help manage patients</p>
+        <a href="{{ url_for('auth.create_assistant') }}" class="btn" style="background: #28a745;">
+            + Create Your First Assistant
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Make table rows clickable
+document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('.assistant-row');
+    
+    rows.forEach(row => {
+        // Add hover effect
+        row.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f0f8ff';
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+        
+        // Make row clickable (navigate to edit page)
+        row.addEventListener('click', function(e) {
+            // Don't navigate if clicking on buttons or forms
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'FORM' && e.target.tagName !== 'A' && !e.target.closest('button') && !e.target.closest('a')) {
+                const assistantId = this.getAttribute('data-assistant-id');
+                window.location.href = "{{ url_for('auth.edit_assistant', assistant_id=0) }}".replace('0', assistantId);
+            }
+        });
+    });
+});
+</script>
+
+<style>
+.btn-small {
+    padding: 6px 12px;
+    font-size: 13px;
+    text-decoration: none;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-block;
+    margin: 0 2px;
+}
+
+.btn-small:hover {
+    background: #0056b3;
+}
+
+.btn-danger {
+    background: #dc3545;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+/* Dark mode support */
+body.dark-mode table {
+    background: #2d2d2d !important;
+}
+
+body.dark-mode table thead tr {
+    background: #0056b3 !important;
+}
+
+body.dark-mode table tbody tr {
+    background: #2d2d2d !important;
+}
+
+body.dark-mode table tbody tr:hover,
+body.dark-mode .assistant-row:hover {
+    background: #3d3d3d !important;
+}
+
+body.dark-mode table td,
+body.dark-mode table th {
+    border-color: #444 !important;
+    color: #e0e0e0 !important;
+}
+</style>
+{% endblock %}

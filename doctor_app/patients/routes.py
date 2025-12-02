@@ -72,9 +72,9 @@ def list_patients():
             .all()
         )
     else:
-        # When not searching, show only current doctor's patients
+        # Use permission-based query
         patients = (
-            Patient.query.filter_by(doctor_id=current_user.id)
+            current_user.get_accessible_patients()
             .order_by(Patient.full_name.asc())
             .all()
         )
@@ -184,6 +184,16 @@ def edit_patient(patient_id):
 @bp.route("/<int:patient_id>/delete", methods=["POST"])
 @login_required
 def delete_patient(patient_id):
+    from flask_login import current_user
+
+    # Permission check
+    if not current_user.can_delete_patient():
+        flash(
+            "⛔ You don't have permission to delete patients. Contact your doctor.",
+            "danger",
+        )
+        return redirect(url_for("patients.list_patients"))
+
     patient = Patient.query.get_or_404(patient_id)
     patient_name = patient.full_name
 
@@ -197,6 +207,13 @@ def delete_patient(patient_id):
 @bp.route("/export", methods=["GET"])
 @login_required
 def export_patients():
+    from flask_login import current_user
+
+    # Permission check
+    if not current_user.can_import_export():
+        flash("⛔ You don't have permission to export. Contact your doctor.", "danger")
+        return redirect(url_for("patients.list_patients"))
+
     from flask import send_file
     from io import BytesIO
     from flask_login import current_user
@@ -396,6 +413,11 @@ def export_patients():
 @login_required
 def import_patients():
     from flask_login import current_user
+
+    # Permission check
+    if not current_user.can_import_export():
+        flash("⛔ You don't have permission to import. Contact your doctor.", "danger")
+        return redirect(url_for("patients.list_patients"))
 
     form = ImportPatientsForm()
     if form.validate_on_submit():

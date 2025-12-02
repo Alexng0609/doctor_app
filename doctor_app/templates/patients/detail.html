@@ -1,137 +1,118 @@
 {% extends 'base.html' %}
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h1>{{ patient.full_name }}</h1>
-    <div style="display: flex; gap: 10px;">
-        <a href="{{ url_for('patients.edit_patient', patient_id=patient.id) }}" class="btn" style="background: #ffc107; color: #000;">Edit Patient</a>
-        <form method="post" action="{{ url_for('patients.delete_patient', patient_id=patient.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this patient? All visit records will also be deleted. This action cannot be undone.');">
-            <button type="submit" class="btn" style="background: #dc3545;">Delete Patient</button>
-        </form>
-    </div>
-</div>
+<h1>Patient: {{ patient.full_name }}</h1>
 
 <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
         <div>
-            <strong style="color: #666;">Phone:</strong>
-            <p style="margin: 5px 0;">{{ patient.phone or '—' }}</p>
+            <strong>Full Name:</strong><br>
+            {{ patient.full_name }}
         </div>
         <div>
-            <strong style="color: #666;">Date of Birth:</strong>
-            <p style="margin: 5px 0;">
-                {% if patient.date_of_birth %}
-                    {{ patient.date_of_birth.strftime('%B %d, %Y') }}
-                {% else %}
-                    —
-                {% endif %}
-            </p>
+            <strong>Phone:</strong><br>
+            {{ patient.phone or '—' }}
         </div>
         <div>
-            <strong style="color: #666;">Age:</strong>
-            <p style="margin: 5px 0;">
-                {% if patient.date_of_birth %}
-                    {% set age = ((now.year - patient.date_of_birth.year) - ((now.month, now.day) < (patient.date_of_birth.month, patient.date_of_birth.day))) %}
-                    {{ age }} years old
-                {% else %}
-                    —
-                {% endif %}
-            </p>
+            <strong>Date of Birth:</strong><br>
+            {% if patient.date_of_birth %}
+                {{ patient.date_of_birth.strftime('%B %d, %Y') }}
+            {% else %}
+                —
+            {% endif %}
         </div>
         <div>
-            <strong style="color: #666;">Patient Since:</strong>
-            <p style="margin: 5px 0;">{{ patient.created_at.strftime('%B %d, %Y') }}</p>
-        </div>
-        <div>
-            <strong style="color: #666;">Primary Doctor:</strong>
-            <p style="margin: 5px 0;">
-                {% if patient.primary_doctor %}
-                    {{ patient.primary_doctor.full_name or patient.primary_doctor.username }}
-                {% else %}
-                    —
-                {% endif %}
-            </p>
+            <strong>Age:</strong><br>
+            {% if patient.date_of_birth %}
+                {% set age = ((now.year - patient.date_of_birth.year) - ((now.month, now.day) < (patient.date_of_birth.month, patient.date_of_birth.day))) %}
+                {{ age }} years
+            {% else %}
+                —
+            {% endif %}
         </div>
     </div>
+    
+    {% if patient.primary_doctor %}
+    <div style="margin-top: 15px; padding: 10px; background: white; border-radius: 5px;">
+        <strong>Assigned To:</strong> {{ patient.primary_doctor.full_name or patient.primary_doctor.username }}
+        {% if patient.primary_doctor.location %}
+            <br><strong>Location:</strong> 
+            <div style="margin-top: 5px; color: #666; white-space: pre-line;">{{ patient.primary_doctor.location }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin: 30px 0 15px 0;">
-    <h2 style="margin: 0;">Visit History</h2>
-    <a href="{{ url_for('visits.new_visit', patient_id=patient.id) }}" class="btn">Add New Visit</a>
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('patients.list_patients') }}" class="btn" style="background: #6c757d;">← Back to Patients</a>
+    <a href="{{ url_for('patients.edit_patient', patient_id=patient.id) }}" class="btn">Edit Patient</a>
+    <a href="{{ url_for('visits.new_visit', patient_id=patient.id) }}" class="btn" style="background: #28a745;">+ Add Visit</a>
+    
+    {# Only show delete button if user has permission #}
+    {% if current_user.can_delete_patient() %}
+    <form method="post" action="{{ url_for('patients.delete_patient', patient_id=patient.id) }}" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this patient? This will also delete all visits and diagnoses.');">
+        <button type="submit" class="btn" style="background: #dc3545;">Delete Patient</button>
+    </form>
+    {% else %}
+    <button class="btn" style="background: #999; cursor: not-allowed;" disabled title="You don't have permission to delete patients">Delete Patient</button>
+    {% endif %}
 </div>
+
+<h2>Visits ({{ visits|length }})</h2>
 
 {% if visits %}
-<table style="width: 100%; border-collapse: collapse;">
-    <thead>
-        <tr style="background: #007bff; color: white;">
-            <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Date</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Clinician</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #0056b3; min-width: 180px;">Location</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Diagnoses</th>
-            <th style="padding: 12px; text-align: left; border: 1px solid #0056b3;">Notes Preview</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for v in visits|sort(attribute='visit_date', reverse=True) %}
-        <tr style="cursor: pointer;" onclick="window.location='{{ url_for('visits.visit_detail', visit_id=v.id) }}';" onmouseover="this.style.backgroundColor='#f0f8ff';" onmouseout="this.style.backgroundColor='';">
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                <strong>{{ v.visit_date.strftime('%b %d, %Y') }}</strong><br>
-                <small style="color: #666;">{{ v.visit_date.strftime('%I:%M %p') }}</small>
-            </td>
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                {{ v.clinician or '—' }}
-            </td>
-            <td style="padding: 10px; border: 1px solid #ddd; vertical-align: top;">
-                {% if v.creator and v.creator.location %}
-                    <div style="background: #e7f3ff; padding: 8px 10px; border-radius: 5px; border-left: 3px solid #0070c0;">
-                        <div style="font-weight: bold; color: #0070c0; margin-bottom: 3px; font-size: 11px;">
-                            📍 Visit Location:
-                        </div>
-                        <div style="font-size: 12px; line-height: 1.4; white-space: pre-line;">{{ v.creator.location }}</div>
-                    </div>
-                {% elif v.creator %}
-                    <span style="background: #f8f9fa; color: #666; padding: 6px 10px; border-radius: 3px; font-size: 12px; display: inline-block; border: 1px dashed #ddd;">
-                        📍 No Address Set
-                    </span>
-                {% else %}
-                    <span style="color: #999;">—</span>
-                {% endif %}
-            </td>
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                {% if v.diagnoses %}
-                    {% for d in v.diagnoses %}
-                        <div style="margin-bottom: 5px;">
-                            {% if d.code %}<strong style="color: #007bff;">[{{ d.code }}]</strong>{% endif %}
-                            {{ d.description }}
-                        </div>
-                    {% endfor %}
-                {% else %}
-                    <span style="color: #999;">No diagnoses</span>
-                {% endif %}
-            </td>
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                {% if v.notes %}
-                    {{ v.notes[:80] }}{% if v.notes|length > 80 %}...{% endif %}
-                {% else %}
-                    <span style="color: #999;">No notes</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<div style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 5px;">
-    <strong>Total Visits:</strong> {{ visits|length }}
-    <span style="margin-left: 15px; color: #666;">💡 Click on any row to view full visit details</span>
+<div style="display: flex; flex-direction: column; gap: 15px;">
+    {% for visit in visits|sort(attribute='visit_date', reverse=True) %}
+    <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+            <div>
+                <h3 style="margin: 0 0 10px 0; color: #007bff;">
+                    {{ visit.visit_date.strftime('%B %d, %Y') }}
+                </h3>
+                <div style="color: #666; font-size: 14px;">
+                    <strong>Time:</strong> {{ visit.visit_date.strftime('%I:%M %p') }}
+                    {% if visit.clinician %}
+                    <br><strong>Clinician:</strong> {{ visit.clinician }}
+                    {% endif %}
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <a href="{{ url_for('visits.edit_visit', visit_id=visit.id) }}" class="btn" style="padding: 8px 15px; font-size: 14px;">Edit Visit</a>
+            </div>
+        </div>
+        
+        {% if visit.diagnoses %}
+        <div style="margin-bottom: 15px;">
+            <strong style="color: #333;">Diagnoses:</strong>
+            <div style="margin-top: 8px;">
+                {% for diagnosis in visit.diagnoses %}
+                <div style="padding: 10px; background: #f8f9fa; border-left: 3px solid #007bff; margin-bottom: 8px; border-radius: 3px;">
+                    {% if diagnosis.code %}
+                    <strong style="color: #007bff;">{{ diagnosis.code }}:</strong>
+                    {% endif %}
+                    {{ diagnosis.description }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div style="padding: 10px; background: #fff3cd; border-left: 3px solid #ffc107; margin-bottom: 15px; border-radius: 3px;">
+            <em>No diagnoses recorded for this visit</em>
+        </div>
+        {% endif %}
+        
+        {% if visit.notes %}
+        <div>
+            <strong style="color: #333;">Notes:</strong>
+            <div style="margin-top: 8px; padding: 15px; background: #f8f9fa; border-radius: 5px; white-space: pre-wrap; line-height: 1.6;">{{ visit.notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
 </div>
 {% else %}
-<div style="padding: 40px; text-align: center; background: #f9f9f9; border-radius: 8px;">
-    <p style="font-size: 16px; color: #666;">No visits recorded yet for this patient.</p>
-    <a href="{{ url_for('visits.new_visit', patient_id=patient.id) }}" class="btn" style="margin-top: 10px;">Add First Visit</a>
+<div style="padding: 40px; text-align: center; background: #f9f9f9; border-radius: 8px; border: 2px dashed #ddd;">
+    <p style="font-size: 18px; color: #666; margin-bottom: 20px;">No visits recorded yet</p>
+    <a href="{{ url_for('visits.new_visit', patient_id=patient.id) }}" class="btn" style="background: #28a745;">+ Add First Visit</a>
 </div>
 {% endif %}
-
-<div style="margin-top: 20px;">
-    <a href="{{ url_for('patients.list_patients') }}" class="btn" style="background: #6c757d;">Back to Patients</a>
-</div>
 {% endblock %}

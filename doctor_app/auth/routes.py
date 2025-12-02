@@ -7,6 +7,8 @@ from doctor_app.auth.forms import (
     RegisterForm,
     EditUserForm,
     ChangePasswordForm,
+    CreateAssistantForm,
+    EditAssistantForm,
 )
 from functools import wraps
 
@@ -19,6 +21,18 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_admin():
             flash("You need admin privileges to access this page", "danger")
+            return redirect(url_for("patients.list_patients"))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+# Doctor required decorator (for assistant management)
+def doctor_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_doctor():
+            flash("Only doctors can access this page", "danger")
             return redirect(url_for("patients.list_patients"))
         return f(*args, **kwargs)
 
@@ -56,6 +70,16 @@ def login():
                 )
                 return render_template("auth/login.html", form=form)
             login_user(user)
+
+            # Show different messages based on role
+            if user.is_assistant():
+                flash(f"✅ Welcome back, {user.full_name}!", "success")
+                flash(f"ℹ️ You're working under {user.doctor.full_name}", "info")
+            elif user.is_doctor():
+                flash(f"✅ Welcome back, Dr. {user.full_name}!", "success")
+            else:
+                flash(f"✅ Welcome back, {user.full_name}!", "success")
+
             next_page = request.args.get("next")
             return (
                 redirect(next_page)
@@ -75,7 +99,7 @@ def logout():
     return redirect(url_for("auth.login"))
 
 
-# Register new user (admin only)
+# Register new user (admin only - creates doctors)
 @bp.route("/register", methods=["GET", "POST"])
 @login_required
 @admin_required
@@ -101,6 +125,113 @@ def register():
         flash(f"User {user.username} created successfully", "success")
         return redirect(url_for("auth.list_users"))
     return render_template("auth/register.html", form=form)
+
+
+# Create assistant (doctor only)
+@bp.route("/assistants/create", methods=["GET", "POST"])
+@login_required
+@doctor_required
+def create_assistant():
+    form = CreateAssistantForm()
+    if form.validate_on_submit():
+        # Create assistant account
+        assistant = User(
+            username=form.username.data,
+            full_name=form.full_name.data,
+            email=form.email.data,
+            role="assistant",
+            doctor_id=current_user.id,  # Link to current doctor
+            location=current_user.location,  # Inherit doctor's location
+            is_active=True,
+        )
+        assistant.set_password(form.password.data)
+        db.session.add(assistant)
+        db.session.commit()
+        flash(f"✅ Assistant '{assistant.username}' created successfully", "success")
+        return redirect(url_for("auth.my_assistants"))
+
+    return render_template("auth/create_assistant.html", form=form)
+
+
+# List my assistants (doctor only)
+@bp.route("/assistants")
+@login_required
+@doctor_required
+def my_assistants():
+    assistants = current_user.assistants.order_by(User.created_at.desc()).all()
+
+    # Get patient counts for each assistant
+    assistant_data = []
+    for assistant in assistants:
+        patient_count = len(assistant.patients)  # ← USE len() INSTEAD
+        assistant_data.append({"assistant": assistant, "patient_count": patient_count})
+
+    return render_template("auth/my_assistants.html", assistant_data=assistant_data)
+
+
+# Edit assistant (doctor only - can only edit their own assistants)
+@bp.route("/assistants/<int:assistant_id>/edit", methods=["GET", "POST"])
+@login_required
+@doctor_required
+def edit_assistant(assistant_id):
+    assistant = User.query.get_or_404(assistant_id)
+
+    # Make sure this assistant belongs to current doctor
+    if assistant.doctor_id != current_user.id:
+        flash("You can only edit your own assistants", "danger")
+        return redirect(url_for("auth.my_assistants"))
+
+    form = EditAssistantForm(obj=assistant)
+
+    if form.validate_on_submit():
+        # Check if username is taken by another user
+        existing_user = User.query.filter_by(username=form.username.data).first()
+        if existing_user and existing_user.id != assistant.id:
+            flash("Username already exists", "danger")
+            return render_template(
+                "auth/edit_assistant.html", form=form, assistant=assistant
+            )
+
+        assistant.username = form.username.data
+        assistant.full_name = form.full_name.data
+        assistant.email = form.email.data
+        assistant.is_active = form.is_active.data
+
+        db.session.commit()
+        flash(f"✅ Assistant '{assistant.username}' updated successfully", "success")
+        return redirect(url_for("auth.my_assistants"))
+
+    return render_template("auth/edit_assistant.html", form=form, assistant=assistant)
+
+
+# Delete assistant (doctor only)
+@bp.route("/assistants/<int:assistant_id>/delete", methods=["POST"])
+@login_required
+@doctor_required
+def delete_assistant(assistant_id):
+    assistant = User.query.get_or_404(assistant_id)
+
+    # Make sure this assistant belongs to current doctor
+    if assistant.doctor_id != current_user.id:
+        flash("You can only delete your own assistants", "danger")
+        return redirect(url_for("auth.my_assistants"))
+
+    # Check if assistant has patients
+    patient_count = assistant.patients.count()
+    if patient_count > 0:
+        flash(
+            f"❌ Cannot delete assistant '{assistant.username}': "
+            f"They have {patient_count} patient(s) assigned. "
+            f"Please reassign patients first.",
+            "danger",
+        )
+        return redirect(url_for("auth.my_assistants"))
+
+    username = assistant.username
+    db.session.delete(assistant)
+    db.session.commit()
+    flash(f"✅ Assistant '{username}' deleted successfully", "success")
+    return redirect(url_for("auth.my_assistants"))
 
 
 # List all users (admin only)
@@ -141,7 +272,7 @@ def edit_user(user_id):
     return render_template("auth/edit_user.html", form=form, user=user)
 
 
-# NEW: Quick update location (admin only) - AJAX endpoint
+# Quick update location (admin only)
 @bp.route("/users/<int:user_id>/update-location", methods=["POST"])
 @login_required
 @admin_required
@@ -191,6 +322,18 @@ def delete_user(user_id):
         admin_count = User.query.filter_by(role="admin").count()
         if admin_count <= 1:
             flash("Cannot delete the last admin user", "danger")
+            return redirect(url_for("auth.list_users"))
+
+    # Check if doctor has assistants
+    if user.is_doctor():
+        assistant_count = user.assistants.count()
+        if assistant_count > 0:
+            flash(
+                f"❌ Cannot delete doctor '{user.username}': "
+                f"They have {assistant_count} assistant(s). "
+                f"Please delete or reassign assistants first.",
+                "danger",
+            )
             return redirect(url_for("auth.list_users"))
 
     username = user.username

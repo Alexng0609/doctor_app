@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Create New Assistant</h2>
+    
+    <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin-bottom: 20px;">
+        <h4 style="margin-top: 0;">ℹ️ About Assistants</h4>
+        <p style="margin-bottom: 10px;"><strong>Assistants can:</strong></p>
+        <ul style="margin-left: 20px;">
+            <li>✅ View and manage their own assigned patients</li>
+            <li>✅ Add new patients</li>
+            <li>✅ Add visits and diagnoses</li>
+            <li>✅ Search all patients (for reference)</li>
+        </ul>
+        <p style="margin-bottom: 10px;"><strong>Assistants CANNOT:</strong></p>
+        <ul style="margin-left: 20px;">
+            <li>❌ Import/Export Excel files</li>
+            <li>❌ Delete patients</li>
+            <li>❌ Create other accounts</li>
+        </ul>
+        <p style="margin-bottom: 0;"><strong>Location:</strong> Assistant will inherit your location: <em>{{ current_user.location or 'No location set' }}</em></p>
+    </div>
+    
+    <form method="POST" class="form-card">
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.username.label }}
+            {{ form.username(class="form-control") }}
+            {% if form.username.errors %}
+                <div class="error">{{ form.username.errors[0] }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.full_name.label }}
+            {{ form.full_name(class="form-control") }}
+            {% if form.full_name.errors %}
+                <div class="error">{{ form.full_name.errors[0] }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.email.label }}
+            {{ form.email(class="form-control") }}
+            {% if form.email.errors %}
+                <div class="error">{{ form.email.errors[0] }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.password.label }}
+            {{ form.password(class="form-control") }}
+            {% if form.password.errors %}
+                <div class="error">{{ form.password.errors[0] }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.confirm_password.label }}
+            {{ form.confirm_password(class="form-control") }}
+            {% if form.confirm_password.errors %}
+                <div class="error">{{ form.confirm_password.errors[0] }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">✅ Create Assistant</button>
+            <a href="{{ url_for('auth.my_assistants') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
